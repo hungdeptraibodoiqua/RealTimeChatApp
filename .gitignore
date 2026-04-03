@@ -1,0 +1,37 @@
+# Build
+bin/
+obj/
+
+# User files
+*.user
+*.suo
+*.userprefs
+
+# VS Code
+.vscode/
+
+#visual studio
+.vs/
+**/.vs/
+
+# Rider
+.idea/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# .NET
+*.dll
+*.exe
+*.pdb
+
+# EF
+Migrations/
+
+# appsettings secrets
+appsettings.Development.json
+appsettings.*.json

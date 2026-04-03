@@ -1,0 +1,621 @@
+GIẢI THÍCH CẤU TRÚC FRONTEND APP CHAT REALTIME
+
+Tổng quan
+Đây là một cấu trúc frontend cho ứng dụng chat realtime viết bằng React. Cách tổ chức này chia code theo:
+- phần khởi động ứng dụng
+- từng màn hình
+- từng tính năng nghiệp vụ
+- phần gọi API
+- phần realtime SignalR
+- store quản lý state toàn cục
+- component dùng chung
+- hooks custom
+- utility và hằng số
+
+Mục tiêu của cấu trúc này là:
+- dễ mở rộng khi app lớn dần
+- tách rõ UI, state, service, business logic
+- dễ bảo trì
+- dễ chia việc cho nhiều người
+
+==================================================
+1. CÁC FILE Ở ROOT
+==================================================
+
+package.json
+- Là file khai báo thông tin project Node.js.
+- Chứa:
+  + tên project
+  + version
+  + scripts để chạy app, build app
+  + dependencies như react, react-router, redux toolkit, axios, signalr...
+- Khi chạy npm install hoặc npm run dev thì hệ thống đọc file này.
+
+vite.config.js
+- Là file cấu hình cho Vite.
+- Dùng để:
+  + cấu hình dev server
+  + alias đường dẫn
+  + proxy API nếu cần
+  + cấu hình build
+- Vì project này dùng Vite thay vì Create React App, nên Vite sẽ là công cụ build/dev chính.
+
+.env.development
+- File biến môi trường dùng cho môi trường development.
+- Ví dụ:
+  + VITE_API_BASE_URL=http://localhost:5000
+  + VITE_SIGNALR_URL=http://localhost:5000/chatHub
+- Dùng khi chạy local để frontend biết gọi backend nào.
+
+.env.production
+- File biến môi trường dùng cho môi trường production.
+- Ví dụ:
+  + VITE_API_BASE_URL=https://api.example.com
+  + VITE_SIGNALR_URL=https://api.example.com/chatHub
+- Giúp tách cấu hình local và production.
+
+index.html
+- Là file HTML gốc mà Vite dùng để mount ứng dụng React vào.
+- Trong đó thường có một thẻ như:
+  <div id="root"></div>
+- React sẽ render toàn bộ app vào đây.
+
+Dockerfile
+- File mô tả cách đóng gói frontend thành container Docker.
+- Dùng khi deploy.
+- Thường sẽ:
+  + build app React
+  + copy file build vào nginx hoặc server tĩnh
+- Giúp deploy nhất quán ở nhiều môi trường.
+
+==================================================
+2. THƯ MỤC src/
+==================================================
+
+Đây là thư mục chứa toàn bộ source code chính của frontend.
+
+main.jsx
+- Là entry point của React app.
+- Nhiệm vụ:
+  + import React
+  + import ReactDOM
+  + import App
+  + bọc app trong Provider của Redux, BrowserRouter nếu cần
+  + render vào #root
+- Nói đơn giản: đây là điểm bắt đầu thật sự của frontend.
+
+App.jsx
+- Là component gốc của ứng dụng.
+- Thường dùng để:
+  + gắn router chính
+  + gắn layout tổng
+  + xử lý context cấp cao
+- Có thể hiểu App.jsx là “khung ngoài cùng” của app.
+
+==================================================
+3. THƯ MỤC pages/
+==================================================
+
+pages/
+- Chứa các màn hình lớn tương ứng với route.
+- Mỗi file trong đây thường là một page hoàn chỉnh.
+
+LoginPage.jsx
+- Màn hình đăng nhập.
+- Chứa form login, validate input, gọi authService hoặc dispatch action login.
+- Sau khi đăng nhập thành công có thể chuyển hướng sang ChatPage.
+
+RegisterPage.jsx
+- Màn hình đăng ký tài khoản.
+- Chứa form tạo tài khoản mới.
+- Thường gọi API đăng ký qua authService.
+
+ChatPage.jsx
+- Màn hình chat chính.
+- Đây thường là trang quan trọng nhất.
+- Có thể gồm:
+  + sidebar danh sách phòng
+  + khu vực hiển thị tin nhắn
+  + ô nhập tin nhắn
+  + thành viên online
+  + typing indicator
+- Page này sẽ kết nối nhiều feature lại với nhau.
+
+Ý nghĩa của pages:
+- pages đại diện cho “màn hình”
+- còn feature đại diện cho “chức năng nghiệp vụ”
+- page thường lắp ghép nhiều component/features lại
+
+==================================================
+4. THƯ MỤC features/
+==================================================
+
+Đây là phần rất quan trọng.
+Thay vì gom tất cả code theo loại file, cấu trúc này chia theo từng tính năng nghiệp vụ.
+
+4.1 features/auth/
+
+authSlice.js
+- Slice Redux quản lý state liên quan đến xác thực.
+- Ví dụ state:
+  + user hiện tại
+  + access token
+  + trạng thái loading
+  + lỗi đăng nhập
+  + trạng thái đã đăng nhập hay chưa
+- Nếu dùng Redux Toolkit thì file này thường chứa:
+  + initialState
+  + reducers
+  + extraReducers cho async thunk
+
+authSelectors.js
+- Chứa các hàm lấy dữ liệu từ auth state.
+- Ví dụ:
+  + selectCurrentUser
+  + selectIsAuthenticated
+  + selectAuthLoading
+- Lợi ích:
+  + tránh đọc trực tiếp state ở nhiều nơi
+  + dễ tái sử dụng
+  + dễ refactor khi cấu trúc state thay đổi
+
+4.2 features/rooms/
+
+roomsSlice.js
+- Quản lý state của phòng chat.
+- Ví dụ:
+  + danh sách phòng
+  + phòng đang được chọn
+  + loading danh sách phòng
+  + lỗi tạo/xóa/sửa phòng
+
+roomsSelectors.js
+- Các selector lấy dữ liệu từ state của rooms.
+- Ví dụ:
+  + selectAllRooms
+  + selectCurrentRoom
+  + selectRoomsLoading
+
+RoomList.jsx
+- Component hiển thị danh sách phòng chat.
+- Ví dụ:
+  + phòng public
+  + phòng private
+  + phòng đã join
+- Người dùng click vào phòng nào thì sẽ chuyển context chat sang phòng đó.
+
+CreateRoomModal.jsx
+- Modal tạo phòng chat mới.
+- Có thể có input:
+  + tên phòng
+  + mô tả
+  + chế độ public/private
+- Khi submit sẽ gọi roomService hoặc dispatch action.
+
+RoomSettingsModal.jsx
+- Modal chỉnh sửa cài đặt phòng.
+- Có thể dùng để:
+  + đổi tên phòng
+  + đổi quyền riêng tư
+  + thêm/xóa thành viên
+  + xóa phòng
+- Giúp tách UI quản trị phòng khỏi ChatPage.
+
+4.3 features/chat/
+
+chatSlice.js
+- Quản lý state liên quan đến tin nhắn.
+- Ví dụ:
+  + danh sách tin nhắn theo room
+  + trạng thái loading tin nhắn
+  + phân trang / infinite scroll
+  + tin nhắn đang gửi
+  + trạng thái typing
+  + unread count
+- Trong app realtime, slice này rất quan trọng vì message đến liên tục từ SignalR.
+
+chatSelectors.js
+- Selector cho phần chat.
+- Ví dụ:
+  + selectMessagesByRoom
+  + selectTypingUsers
+  + selectUnreadCount
+
+MessageList.jsx
+- Component hiển thị danh sách tin nhắn.
+- Có thể map qua từng message và render MessageItem.
+- Thường xử lý scroll xuống cuối, load thêm tin nhắn cũ, phân nhóm theo ngày.
+
+MessageItem.jsx
+- Component hiển thị 1 tin nhắn riêng lẻ.
+- Có thể gồm:
+  + avatar người gửi
+  + tên người gửi
+  + thời gian gửi
+  + nội dung tin nhắn
+  + trạng thái seen/delivered
+- Tách riêng để dễ tái sử dụng và tối ưu render.
+
+MessageInput.jsx
+- Ô nhập tin nhắn.
+- Có thể gồm:
+  + textarea/input
+  + nút send
+  + upload file
+  + emoji picker
+- Ngoài gửi tin nhắn còn có thể bắn sự kiện typing realtime.
+
+TypingIndicator.jsx
+- Component hiển thị kiểu:
+  “A đang nhập...”
+  hoặc
+  “A, B đang nhập...”
+- Dữ liệu thường đến từ SignalR hoặc state tạm thời.
+
+Ý nghĩa của features:
+- gom logic theo tính năng
+- người mới vào project nhìn là biết auth nằm đâu, chat nằm đâu, rooms nằm đâu
+- phù hợp project trung bình đến lớn
+
+==================================================
+5. THƯ MỤC app/
+==================================================
+
+app/store.js
+- Cấu hình Redux store toàn cục.
+- Kết hợp các slice như:
+  + authSlice
+  + roomsSlice
+  + chatSlice
+- Có thể thêm middleware, devTools config, thunk config...
+
+app/router.jsx
+- Cấu hình React Router v6.
+- Định nghĩa route như:
+  + /login -> LoginPage
+  + /register -> RegisterPage
+  + /chat -> ChatPage
+- Có thể bọc route riêng tư bằng PrivateRoute.
+
+Ý nghĩa:
+- store.js quản lý state global
+- router.jsx quản lý điều hướng giữa các màn hình
+
+==================================================
+6. THƯ MỤC services/
+==================================================
+
+Đây là lớp giao tiếp với backend hoặc hệ thống bên ngoài.
+
+apiClient.js
+- Tạo axios instance dùng chung.
+- Thường cấu hình:
+  + baseURL
+  + timeout
+  + headers mặc định
+  + interceptor gắn token
+  + interceptor xử lý lỗi 401/403
+- Mục tiêu là tất cả service khác dùng chung một client thống nhất.
+
+authService.js
+- Chứa các hàm gọi API liên quan đến auth.
+- Ví dụ:
+  + login
+  + register
+  + refreshToken
+  + logout
+  + getProfile
+
+roomService.js
+- Chứa các hàm gọi API liên quan tới phòng chat.
+- Ví dụ:
+  + getRooms
+  + createRoom
+  + updateRoom
+  + deleteRoom
+  + addMember
+  + removeMember
+
+messageService.js
+- Chứa các hàm gọi API liên quan tới tin nhắn.
+- Ví dụ:
+  + getMessagesByRoom
+  + sendMessage
+  + editMessage
+  + deleteMessage
+  + markAsRead
+
+signalrService.js
+- Phần rất quan trọng cho realtime.
+- Dùng để:
+  + tạo kết nối SignalR Hub
+  + start connection
+  + reconnect
+  + subscribe event
+  + unsubscribe event
+  + invoke method lên server
+- Ví dụ các event:
+  + ReceiveMessage
+  + UserTyping
+  + UserOnline
+  + RoomUpdated
+
+Ý nghĩa của services:
+- tách phần gọi API khỏi UI
+- component không cần biết chi tiết axios request
+- dễ test, dễ đổi backend
+
+==================================================
+7. THƯ MỤC hooks/
+==================================================
+
+useAuth.js
+- Custom hook cho logic auth.
+- Có thể gói các thao tác:
+  + lấy current user
+  + kiểm tra đã đăng nhập chưa
+  + login/logout
+- Giúp component dùng auth dễ hơn, không cần lặp logic.
+
+useSignalR.js
+- Custom hook cho realtime.
+- Có thể:
+  + mở kết nối SignalR khi component mount
+  + đăng ký event listener
+  + cleanup khi unmount
+- Đây là nơi giúp React component “nói chuyện” với signalrService dễ hơn.
+
+useInfiniteScroll.js
+- Hook cho chức năng load thêm dữ liệu khi cuộn.
+- Trong chat app thường dùng để:
+  + kéo lên để tải tin nhắn cũ
+- Giúp tách logic scroll khỏi UI component.
+
+Ý nghĩa của hooks:
+- tái sử dụng logic
+- giảm code lặp
+- làm component gọn hơn
+
+==================================================
+8. THƯ MỤC components/
+==================================================
+
+Chứa các component dùng lại nhiều nơi.
+
+8.1 components/layout/
+
+MainLayout.jsx
+- Layout chính của app sau khi đăng nhập.
+- Có thể gồm:
+  + sidebar
+  + top bar
+  + content area
+- Các page bên trong sẽ render vào layout này.
+
+Sidebar.jsx
+- Thanh bên.
+- Thường chứa:
+  + danh sách phòng
+  + menu điều hướng
+  + profile user
+  + logout button
+
+8.2 components/common/
+
+Button.jsx
+- Nút bấm dùng chung.
+- Mục tiêu:
+  + thống nhất style
+  + dễ đổi giao diện toàn app
+  + tái sử dụng cao
+
+Input.jsx
+- Ô nhập dùng chung.
+- Có thể hỗ trợ:
+  + label
+  + error message
+  + nhiều kích thước
+  + icon trái/phải
+
+Modal.jsx
+- Hộp thoại popup dùng chung.
+- Các modal như CreateRoomModal hay RoomSettingsModal có thể build dựa trên component này.
+
+Avatar.jsx
+- Hiển thị ảnh đại diện người dùng.
+- Có thể hỗ trợ:
+  + fallback chữ cái đầu
+  + size khác nhau
+  + trạng thái online
+
+OnlineBadge.jsx
+- Chấm trạng thái online/offline.
+- Thường gắn lên avatar.
+
+8.3 components/guards/
+
+PrivateRoute.jsx
+- Route guard bảo vệ các route cần đăng nhập.
+- Ví dụ:
+  + nếu chưa đăng nhập thì redirect về /login
+  + nếu đã đăng nhập thì cho vào /chat
+- Đây là lớp bảo vệ phía frontend.
+
+Ý nghĩa của components:
+- tách UI nhỏ và tái sử dụng
+- làm page gọn hơn
+- đồng bộ giao diện
+
+==================================================
+9. THƯ MỤC utils/
+==================================================
+
+constants.js
+- Chứa hằng số dùng chung toàn app.
+- Ví dụ:
+  + route path
+  + role name
+  + message status
+  + số lượng item mỗi lần load
+
+tokenStorage.js
+- Quản lý nơi lưu token.
+- Ghi chú “memory only” nghĩa là token chỉ giữ trong bộ nhớ runtime, không lưu localStorage/sessionStorage.
+- Lợi ích:
+  + an toàn hơn trước một số kiểu tấn công XSS
+- Nhược điểm:
+  + refresh trang có thể mất token nếu không có chiến lược refresh token phù hợp
+
+dateFormatter.js
+- Các hàm format ngày giờ.
+- Ví dụ:
+  + format giờ gửi tin nhắn
+  + format “hôm nay”, “hôm qua”
+  + format theo locale
+
+signalrEvents.js
+- Chứa tên các event SignalR dùng chung.
+- Ví dụ:
+  + export const RECEIVE_MESSAGE = "ReceiveMessage"
+  + export const USER_TYPING = "UserTyping"
+- Tránh hard-code string ở nhiều nơi.
+- Khi backend đổi tên event, chỉ cần sửa một chỗ.
+
+==================================================
+10. CÁCH CÁC PHẦN PHỐI HỢP VỚI NHAU
+==================================================
+
+Ví dụ luồng đăng nhập:
+1. User nhập thông tin ở LoginPage.jsx
+2. LoginPage gọi authService hoặc dispatch async thunk trong authSlice
+3. authService dùng apiClient gửi request tới backend
+4. Backend trả về token và user info
+5. authSlice cập nhật Redux store
+6. tokenStorage giữ token trong memory
+7. router điều hướng sang ChatPage
+8. PrivateRoute cho phép truy cập vì user đã đăng nhập
+
+Ví dụ luồng tải phòng chat:
+1. ChatPage mount
+2. dispatch action loadRooms
+3. roomService gọi API qua apiClient
+4. roomsSlice cập nhật state
+5. RoomList render danh sách phòng
+
+Ví dụ luồng nhận tin nhắn realtime:
+1. useSignalR mở kết nối qua signalrService
+2. Backend push event ReceiveMessage
+3. signalrService bắt event
+4. dispatch action vào chatSlice
+5. MessageList tự render lại danh sách tin nhắn mới
+
+Ví dụ luồng user đang gõ:
+1. User nhập trong MessageInput
+2. Frontend gửi event typing qua SignalR
+3. Backend broadcast cho các user khác trong cùng room
+4. Frontend bên kia nhận event
+5. chatSlice cập nhật typing state
+6. TypingIndicator hiển thị “đang nhập...”
+
+==================================================
+11. TƯ DUY THIẾT KẾ CỦA CẤU TRÚC NÀY
+==================================================
+
+Cấu trúc này đang đi theo hướng khá tốt cho app thực tế vì:
+- page chỉ đóng vai trò lắp ghép
+- feature giữ business logic theo từng mảng chức năng
+- services phụ trách giao tiếp backend
+- Redux store quản lý state chung
+- hooks tái sử dụng logic
+- components/common tái sử dụng UI
+- utils giữ helper và constant
+
+Ưu điểm:
+- dễ scale
+- dễ tách team làm việc
+- dễ maintain
+- rõ trách nhiệm từng phần
+
+Nhược điểm có thể gặp:
+- hơi nhiều file với người mới
+- nếu project nhỏ có thể cảm giác over-structure
+- cần thống nhất quy ước rõ ràng để tránh trùng vai trò giữa hook, service, slice
+
+==================================================
+12. PHÂN BIỆT MỘT SỐ PHẦN DỄ NHẦM
+==================================================
+
+Page và Component khác nhau thế nào?
+- Page là màn hình lớn gắn với route
+- Component là phần nhỏ tái sử dụng trong page hoặc feature
+
+Service và Slice khác nhau thế nào?
+- Service gọi API / SignalR
+- Slice giữ state và cập nhật state
+
+Hook và Utility khác nhau thế nào?
+- Hook dùng khi có logic gắn với React lifecycle hoặc state
+- Utility là hàm thuần, không phụ thuộc React
+
+common component và feature component khác nhau thế nào?
+- common component dùng ở nhiều nơi, mang tính generic
+- feature component gắn với nghiệp vụ cụ thể như MessageList hay RoomSettingsModal
+
+==================================================
+13. GỢI Ý CẢI TIẾN THÊM
+==================================================
+
+Nếu làm app chat thực tế hơn, bạn có thể bổ sung:
+
+- assets/
+  Chứa ảnh, icon, font
+
+- styles/
+  Chứa CSS global, theme, variables
+
+- features/presence/
+  Nếu online/offline status phức tạp, có thể tách riêng khỏi chat
+
+- features/notifications/
+  Quản lý thông báo unread, toast, push notification
+
+- features/call/
+  Nếu sau này có voice/video call
+
+- services/fileService.js
+  Nếu có upload file, ảnh, voice
+
+- utils/errorHandler.js
+  Gom logic xử lý lỗi chung
+
+- tests/
+  Viết unit test, integration test
+
+- config/
+  Gom cấu hình app, env mapping
+
+==================================================
+14. KẾT LUẬN
+==================================================
+
+Đây là một cấu trúc frontend khá hợp lý cho ứng dụng chat realtime dùng React + Redux Toolkit + React Router + Axios + SignalR.
+
+Hiểu ngắn gọn như sau:
+- src/main.jsx: khởi động app
+- App.jsx: component gốc
+- pages/: các màn hình
+- features/: từng nhóm chức năng nghiệp vụ
+- app/store.js: Redux store
+- app/router.jsx: định tuyến
+- services/: gọi API và realtime
+- hooks/: logic tái sử dụng
+- components/: UI dùng lại
+- utils/: helper và hằng số
+
+Nếu bạn nhìn theo luồng phát triển thực tế:
+- UI nằm ở pages/components/features
+- dữ liệu và state nằm ở slices/store/selectors
+- giao tiếp backend nằm ở services
+- logic tái sử dụng nằm ở hooks/utils
+
+Nhờ cách tách này, app sẽ dễ phát triển hơn khi số lượng tính năng tăng lên.

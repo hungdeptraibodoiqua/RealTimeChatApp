@@ -1,8 +1,15 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <ItemGroup>
+    <!-- Infrastructure nhận contract từ Application để cung cấp implementation đúng interface repository/service/realtime. -->
     <ProjectReference Include="..\ChatApp.Application\ChatApp.Application.csproj" />
+    <!-- Infrastructure dùng entity/domain rule từ Domain để lưu trữ và thao tác dữ liệu đúng mô hình nghiệp vụ. -->
     <ProjectReference Include="..\ChatApp.Domain\ChatApp.Domain.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- FrameworkReference này cho phép project Infrastructure dùng DI/config/logging abstraction khi đăng ký service kỹ thuật. -->
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
   </ItemGroup>
 
   <PropertyGroup>

@@ -1,7 +1,7 @@
 using System;
 
-namespace ChatApp.Domain.Entities
-{
+namespace ChatApp.Domain.Entities;
+
     public class RefreshToken
     {
         public string RefreshTokenId { get; private set; }
@@ -128,4 +128,3 @@ namespace ChatApp.Domain.Entities
                 throw new InvalidOperationException("Refresh token has expired.");
         }
     }
-}

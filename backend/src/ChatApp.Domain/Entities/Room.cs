@@ -1,8 +1,8 @@
 using System;
 using ChatApp.Domain.Enums;
 
-namespace ChatApp.Domain.Entities
-{
+namespace ChatApp.Domain.Entities;
+
     //roomtype
     public enum RoomType
     {
@@ -85,4 +85,3 @@ namespace ChatApp.Domain.Entities
             return OwnerId == userId.Trim();
         }
     }
-}

@@ -11,7 +11,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <!-- Application chứa command/query/DTO; API tham chiếu project này để nhận contract nghiệp vụ từ lớp giữa. -->
     <ProjectReference Include="..\ChatApp.Application\ChatApp.Application.csproj" />
+    <!-- Infrastructure chứa implementation kỹ thuật như repository, realtime tracker; API cần reference để dựng DI ở Program.cs. -->
+    <ProjectReference Include="..\ChatApp.Infrastructure\ChatApp.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>

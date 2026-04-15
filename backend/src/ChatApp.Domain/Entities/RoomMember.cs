@@ -1,8 +1,8 @@
 using System;
 using ChatApp.Domain.Enums;
 
-namespace ChatApp.Domain.Entities
-{
+namespace ChatApp.Domain.Entities;
+
     public enum MemberRole
     {
         Owner = 1,
@@ -90,4 +90,3 @@ namespace ChatApp.Domain.Entities
             return Role == MemberRole.Owner || Role == MemberRole.Admin;
         }
     }
-}

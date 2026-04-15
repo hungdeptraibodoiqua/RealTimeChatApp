@@ -1,7 +1,7 @@
 using System;
 
-namespace ChatApp.Domain.Entities
-{
+namespace ChatApp.Domain.Entities;
+
     //constructor
     public class User
     {
@@ -70,4 +70,3 @@ namespace ChatApp.Domain.Entities
             UserName = userName.Trim();
         }
     }
-}

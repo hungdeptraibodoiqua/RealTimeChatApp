@@ -6,11 +6,17 @@ public sealed class PresenceTracker
 {
     // Dictionary này lưu userId và danh sách connectionId đang online của user đó.
     // Hub hoặc realtime service sẽ ghi dữ liệu vào đây khi client connect/disconnect để phục vụ nghiệp vụ hiển thị presence.
-    private readonly ConcurrentDictionary<string, HashSet<string>> _onlineUsers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly ConcurrentDictionary<Guid, HashSet<string>> _onlineUsers = [];
 
-    public bool UserConnected(string userId, string connectionId)
+    public bool UserConnected(Guid userId, string connectionId)
     {
         // Khi client mở một kết nối realtime, userId và connectionId đi từ Hub vào tracker để đánh dấu user online.
+        if (userId == Guid.Empty)
+            throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+
+        if (string.IsNullOrWhiteSpace(connectionId))
+            throw new ArgumentException("ConnectionId cannot be empty.", nameof(connectionId));
+
         var connections = _onlineUsers.GetOrAdd(userId, _ => []);
 
         lock (connections)
@@ -21,9 +27,15 @@ public sealed class PresenceTracker
         }
     }
 
-    public bool UserDisconnected(string userId, string connectionId)
+    public bool UserDisconnected(Guid userId, string connectionId)
     {
         // Khi client đóng kết nối realtime, Hub sẽ gọi method này để gỡ connectionId khỏi user tương ứng.
+        if (userId == Guid.Empty)
+            return false;
+
+        if (string.IsNullOrWhiteSpace(connectionId))
+            return false;
+
         if (!_onlineUsers.TryGetValue(userId, out var connections))
         {
             return false;
@@ -45,15 +57,18 @@ public sealed class PresenceTracker
         return true;
     }
 
-    public IReadOnlyCollection<string> GetOnlineUsers()
+    public IReadOnlyCollection<Guid> GetOnlineUsers()
     {
         // Method này cung cấp snapshot danh sách user online để controller/hub trả dữ liệu presence cho client nếu cần.
-        return _onlineUsers.Keys.OrderBy(userId => userId, StringComparer.OrdinalIgnoreCase).ToArray();
+        return _onlineUsers.Keys.OrderBy(userId => userId).ToArray();
     }
 
-    public bool IsOnline(string userId)
+    public bool IsOnline(Guid userId)
     {
         // Kiểm tra nhanh trạng thái online của một user để lớp nghiệp vụ khác quyết định cách phản hồi realtime.
+        if (userId == Guid.Empty)
+            return false;
+
         return _onlineUsers.ContainsKey(userId);
     }
 }

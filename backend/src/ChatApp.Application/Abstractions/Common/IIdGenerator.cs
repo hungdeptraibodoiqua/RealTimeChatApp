@@ -2,15 +2,13 @@ namespace ChatApp.Application.Abstractions.Common
 {
     /// <summary>
     /// Cung cấp cơ chế sinh ID theo cách trừu tượng hóa.
-    /// Dùng để tránh phụ thuộc trực tiếp Guid.NewGuid() trong handler/service,
-    /// đồng thời dễ thay đổi chiến lược sinh ID về sau.
+    /// Dùng để các handler/service sinh core business ID dưới dạng Guid nhất quán với Domain.
     /// </summary>
     public interface IIdGenerator
     {
         /// <summary>
-        /// Sinh ra một ID mới dạng chuỗi.
-        /// Hiện phù hợp với domain đang dùng nhiều string id.
+        /// Sinh ra một ID mới cho entity nội bộ.
         /// </summary>
-        string NewId();
+        Guid NewId();
     }
 }

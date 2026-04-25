@@ -3,21 +3,13 @@ using ChatApp.Domain.Enums;
 
 namespace ChatApp.Domain.Entities;
 
-public enum MemberRole
-{
-    Owner = 1,
-    Admin = 2,
-    Member = 3
-}
-
 public class RoomMember
 {
     public Guid UserId { get; private set; }
     public Guid RoomId { get; private set; }
     public MemberRole Role { get; private set; }
-    public DateTime JoinedAt { get; private set; }
-
-    public bool IsMuted { get; private set; }
+    public DateTime JoinedAtUtc { get; private set; }
+    public DateTime? LeftAtUtc { get; private set; }
     public Guid? LastReadMessageId { get; private set; }
 
     // constructor
@@ -32,8 +24,8 @@ public class RoomMember
         UserId = userId;
         RoomId = roomId;
         Role = role;
-        JoinedAt = DateTime.UtcNow;
-        IsMuted = false;
+        JoinedAtUtc = DateTime.UtcNow;
+        LeftAtUtc = null;
         LastReadMessageId = null;
     }
 
@@ -50,20 +42,12 @@ public class RoomMember
         Role = newRole;
     }
 
-    public void Mute()
+    public void Leave()
     {
-        if (IsMuted)
+        if (LeftAtUtc.HasValue)
             return;
 
-        IsMuted = true;
-    }
-
-    public void Unmute()
-    {
-        if (!IsMuted)
-            return;
-
-        IsMuted = false;
+        LeftAtUtc = DateTime.UtcNow;
     }
 
     public void MarkAsRead(Guid lastReadMessageId)

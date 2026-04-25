@@ -1,11 +1,15 @@
+using System;
 using ChatApp.API.Middleware;
 using ChatApp.Application;
 using ChatApp.Infrastructure;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Đăng ký OpenAPI để lớp API có thể public tài liệu endpoint cho frontend/test tool gọi vào.
+// Đăng ký OpenAPI/Swagger để test endpoint.
 builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 // Đăng ký controller để request HTTP từ client đi vào các file Controllers/* thay vì chỉ chạy endpoint tối giản.
 builder.Services.AddControllers();
 // Nối API với lớp Application để controller sau này có thể gọi command/query handler và các contract nghiệp vụ.
@@ -17,8 +21,9 @@ var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
 {
-    // Chỉ bật tài liệu OpenAPI ở môi trường dev để kiểm thử flow request từ client vào backend dễ hơn.
     app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 // Middleware này chặn exception phát sinh từ Controller/Application rồi chuẩn hóa response JSON trả ngược cho client.
@@ -27,9 +32,11 @@ app.UseMiddleware<ExceptionMiddleware>();
 app.UseMiddleware<RequestLoggingMiddleware>();
 
 app.UseHttpsRedirection();
+app.UseAuthorization();
 
 // Map toàn bộ endpoint trong Controllers/* để frontend hoặc tool test gọi vào đúng route nghiệp vụ sau này.
 app.MapControllers();
+
 // Endpoint health dùng để kiểm tra API process đã khởi động xong trước khi nối thêm auth, room, message flow.
 app.MapGet("/health", () => Results.Ok(new
 {

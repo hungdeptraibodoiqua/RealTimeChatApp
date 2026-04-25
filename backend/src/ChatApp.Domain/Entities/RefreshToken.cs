@@ -6,12 +6,13 @@ public class RefreshToken
 {
     public Guid Id { get; private set; }
     public Guid UserId { get; private set; }
+    public Guid? ReplacedByTokenId { get; private set; }
 
     // Chỉ lưu HASH của refresh token, không lưu raw token
     public string TokenHash { get; private set; }
 
     // Liên kết với access token/JWT đã phát hành (nếu bạn muốn quản lý chặt hơn)
-    public string? JwtId { get; private set; }
+    public string JwtId { get; private set; }
 
     // Dùng để nhóm các token cùng 1 "family" khi rotate
     public string TokenFamily { get; private set; }
@@ -23,12 +24,6 @@ public class RefreshToken
     public string? RevokedByIp { get; private set; }
 
     public DateTime? RevokedAtUtc { get; private set; }
-    public string? ReplacedByTokenHash { get; private set; }
-    public string? ReasonRevoked { get; private set; }
-
-    // Metadata thêm cho session/device
-    public string? DeviceName { get; private set; }
-    public string? UserAgent { get; private set; }
 
     public bool IsExpired => DateTime.UtcNow >= ExpiresAtUtc; // Property với getter
     public bool IsRevoked => RevokedAtUtc.HasValue;
@@ -39,6 +34,7 @@ public class RefreshToken
     private RefreshToken()
     {
         TokenHash = string.Empty;
+        JwtId = string.Empty;
         TokenFamily = string.Empty;
     }
 
@@ -49,10 +45,9 @@ public class RefreshToken
         string tokenFamily,
         DateTime createdAtUtc,
         DateTime expiresAtUtc,
-        string? jwtId = null,
-        string? createdByIp = null,
-        string? deviceName = null,
-        string? userAgent = null)
+        string jwtId,
+        Guid? replacedByTokenId = null,
+        string? createdByIp = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Id cannot be empty.", nameof(id));
@@ -66,30 +61,31 @@ public class RefreshToken
         if (string.IsNullOrWhiteSpace(tokenFamily))
             throw new ArgumentException("TokenFamily cannot be empty.", nameof(tokenFamily));
 
+        if (string.IsNullOrWhiteSpace(jwtId))
+            throw new ArgumentException("JwtId cannot be empty.", nameof(jwtId));
+
         if (expiresAtUtc <= createdAtUtc)
             throw new ArgumentException("ExpiresAtUtc must be later than CreatedAtUtc.");
 
         Id = id;
         UserId = userId;
+        ReplacedByTokenId = replacedByTokenId;
         TokenHash = tokenHash;
         TokenFamily = tokenFamily;
         JwtId = jwtId;
         CreatedAtUtc = createdAtUtc;
         ExpiresAtUtc = expiresAtUtc;
         CreatedByIp = createdByIp;
-        DeviceName = deviceName;
-        UserAgent = userAgent;
     }
 
     public static RefreshToken Create(
         Guid userId,
         string tokenHash,
         DateTime expiresAtUtc,
-        string? jwtId = null,
+        string jwtId,
         string? createdByIp = null,
-        string? deviceName = null,
-        string? userAgent = null,
-        string? tokenFamily = null)
+        string? tokenFamily = null,
+        Guid? replacedByTokenId = null)
     {
         var now = DateTime.UtcNow;
 
@@ -109,21 +105,19 @@ public class RefreshToken
             createdAtUtc: now,
             expiresAtUtc: expiresAtUtc,
             jwtId: jwtId,
-            createdByIp: createdByIp,
-            deviceName: deviceName,
-            userAgent: userAgent
+            replacedByTokenId: replacedByTokenId,
+            createdByIp: createdByIp
         );
     }
 
-    public void Revoke(string? revokedByIp, string? reason = null, string? replacedByTokenHash = null)
+    public void Revoke(string? revokedByIp, Guid? replacedByTokenId = null)
     {
         if (IsRevoked)
             throw new InvalidOperationException("Refresh token has already been revoked.");
 
         RevokedAtUtc = DateTime.UtcNow;
         RevokedByIp = revokedByIp;
-        ReasonRevoked = reason;
-        ReplacedByTokenHash = replacedByTokenHash;
+        ReplacedByTokenId = replacedByTokenId;
     }
 
     public void EnsureUsable()

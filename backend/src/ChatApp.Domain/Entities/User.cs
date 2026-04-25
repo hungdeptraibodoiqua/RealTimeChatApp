@@ -6,54 +6,61 @@ namespace ChatApp.Domain.Entities;
 public class User
 {
     public Guid Id { get; private set; }
-    public string Name { get; private set; }
+    public string Username { get; private set; }
     public string Email { get; private set; }
-    public string UserName { get; private set; }
     public string PasswordHash { get; private set; }
-    public DateTime CreatedAt { get; private set; }
+    public string DisplayName { get; private set; }
+    public string? AvatarUrl { get; private set; }
+    public bool IsActive { get; private set; }
+    public DateTime CreatedAtUtc { get; private set; }
+    public DateTime UpdatedAtUtc { get; private set; }
 
-    public User(Guid id, string name, string email, string userName, string passwordHash)
+    public User(Guid id, string username, string email, string passwordHash, string displayName, string? avatarUrl = null)
     {
         if (id == Guid.Empty)
             throw new ArgumentException("Id cannot be empty.", nameof(id));
 
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name cannot be empty.", nameof(name));
+        if (string.IsNullOrWhiteSpace(username))
+            throw new ArgumentException("Username cannot be empty.", nameof(username));
 
         if (string.IsNullOrWhiteSpace(email))
             throw new ArgumentException("Email cannot be empty.", nameof(email));
 
-        if (string.IsNullOrWhiteSpace(userName))
-            throw new ArgumentException("UserName cannot be empty.", nameof(userName));
-
         if (string.IsNullOrWhiteSpace(passwordHash))
             throw new ArgumentException("PasswordHash cannot be empty.", nameof(passwordHash));
 
+        if (string.IsNullOrWhiteSpace(displayName))
+            throw new ArgumentException("DisplayName cannot be empty.", nameof(displayName));
+
         Id = id;
-        Name = name.Trim();
+        Username = username.Trim();
         Email = email.Trim();
-        UserName = userName.Trim();
         PasswordHash = passwordHash;
-        CreatedAt = DateTime.UtcNow;
+        DisplayName = displayName.Trim();
+        AvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl.Trim();
+        IsActive = true;
+        CreatedAtUtc = DateTime.UtcNow;
+        UpdatedAtUtc = CreatedAtUtc;
     }
 
     ////parameterless constructor (constructor rỗng) => không dùng cho business logic, dùng cho Entity Framework Core.
     ////Persistence Ignorance + Encapsulation pattern
     private User()
     {
-        Name = string.Empty;
+        Username = string.Empty;
         Email = string.Empty;
-        UserName = string.Empty;
         PasswordHash = string.Empty;
+        DisplayName = string.Empty;
     }
 
     // behavior
-    public void UpdateName(string name)
+    public void UpdateDisplayName(string displayName)
     {
-        if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name cannot be empty.", nameof(name));
+        if (string.IsNullOrWhiteSpace(displayName))
+            throw new ArgumentException("DisplayName cannot be empty.", nameof(displayName));
 
-        Name = name.Trim();
+        DisplayName = displayName.Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     public void ChangePassword(string passwordHash)
@@ -62,6 +69,7 @@ public class User
             throw new ArgumentException("PasswordHash cannot be empty.", nameof(passwordHash));
 
         PasswordHash = passwordHash;
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
     public void UpdateEmail(string email)
@@ -70,13 +78,33 @@ public class User
             throw new ArgumentException("Email cannot be empty.", nameof(email));
 
         Email = email.Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 
-    public void UpdateUserName(string userName)
+    public void UpdateUsername(string username)
     {
-        if (string.IsNullOrWhiteSpace(userName))
-            throw new ArgumentException("UserName cannot be empty.", nameof(userName));
+        if (string.IsNullOrWhiteSpace(username))
+            throw new ArgumentException("Username cannot be empty.", nameof(username));
 
-        UserName = userName.Trim();
+        Username = username.Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void UpdateAvatarUrl(string? avatarUrl)
+    {
+        AvatarUrl = string.IsNullOrWhiteSpace(avatarUrl) ? null : avatarUrl.Trim();
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void Deactivate()
+    {
+        IsActive = false;
+        UpdatedAtUtc = DateTime.UtcNow;
+    }
+
+    public void Activate()
+    {
+        IsActive = true;
+        UpdatedAtUtc = DateTime.UtcNow;
     }
 }

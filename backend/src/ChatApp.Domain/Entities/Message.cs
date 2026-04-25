@@ -12,19 +12,18 @@ public class Message
 {
     public Guid Id { get; private set; }
     public Guid RoomId { get; private set; }
-    public Guid UserId { get; private set; }
+    public Guid SenderUserId { get; private set; }
     public string Content { get; private set; }
     public MessageType MessageType { get; private set; }
-    public DateTime CreatedAt { get; private set; }
-    public DateTime? UpdatedAt { get; private set; }
-    public bool IsEdited { get; private set; }
-    public bool IsDeleted { get; private set; }
+    public DateTime CreatedAtUtc { get; private set; }
+    public DateTime? EditedAtUtc { get; private set; }
+    public DateTime? DeletedAtUtc { get; private set; }
     public Guid? ReplyToMessageId { get; private set; }
 
     public Message(
         Guid id,
         Guid roomId,
-        Guid userId,
+        Guid senderUserId,
         string content,
         MessageType messageType,
         Guid? replyToMessageId = null)
@@ -35,8 +34,8 @@ public class Message
         if (roomId == Guid.Empty)
             throw new ArgumentException("RoomId cannot be empty.", nameof(roomId));
 
-        if (userId == Guid.Empty)
-            throw new ArgumentException("UserId cannot be empty.", nameof(userId));
+        if (senderUserId == Guid.Empty)
+            throw new ArgumentException("SenderUserId cannot be empty.", nameof(senderUserId));
 
         if (!Enum.IsDefined(typeof(MessageType), messageType))
             throw new ArgumentException("Invalid MessageType.", nameof(messageType));
@@ -46,19 +45,18 @@ public class Message
 
         Id = id;
         RoomId = roomId;
-        UserId = userId;
+        SenderUserId = senderUserId;
         Content = content.Trim();
         MessageType = messageType;
         ReplyToMessageId = replyToMessageId;
-        CreatedAt = DateTime.UtcNow;
-        UpdatedAt = null;
-        IsEdited = false;
-        IsDeleted = false;
+        CreatedAtUtc = DateTime.UtcNow;
+        EditedAtUtc = null;
+        DeletedAtUtc = null;
     }
 
     public void Edit(string newContent)
     {
-        if (IsDeleted)
+        if (DeletedAtUtc.HasValue)
             throw new InvalidOperationException("Deleted messages cannot be edited.");
 
         if (MessageType != MessageType.Text)
@@ -68,17 +66,15 @@ public class Message
             throw new ArgumentException("New content cannot be empty.", nameof(newContent));
 
         Content = newContent.Trim();
-        UpdatedAt = DateTime.UtcNow;
-        IsEdited = true;
+        EditedAtUtc = DateTime.UtcNow;
     }
 
     public void Delete()
     {
-        if (IsDeleted)
+        if (DeletedAtUtc.HasValue)
             return;
 
-        IsDeleted = true;
-        UpdatedAt = DateTime.UtcNow;
+        DeletedAtUtc = DateTime.UtcNow;
     }
 
     public bool IsSentBy(Guid userId)
@@ -86,7 +82,7 @@ public class Message
         if (userId == Guid.Empty)
             return false;
 
-        return UserId == userId;
+        return SenderUserId == userId;
     }
 
     public bool IsReplyMessage()

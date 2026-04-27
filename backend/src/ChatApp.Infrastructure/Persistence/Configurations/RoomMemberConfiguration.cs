@@ -38,7 +38,7 @@ public sealed class RoomMemberConfiguration : IEntityTypeConfiguration<RoomMembe
             .OnDelete(DeleteBehavior.Cascade);
 
         // LastReadMessageId chỉ ghi nhận tiến độ đọc, message bị xóa thì reset về null.
-        builder.HasOne<ChatApp.Domain.Enums.Message>()
+        builder.HasOne<Message>()
             .WithMany()
             .HasForeignKey(x => x.LastReadMessageId)
             .OnDelete(DeleteBehavior.SetNull);

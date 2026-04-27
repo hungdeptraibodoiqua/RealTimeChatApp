@@ -1,3 +1,4 @@
+using ChatApp.Domain.Entities;
 using ChatApp.Domain.Enums;
 
 namespace ChatApp.Application.Abstractions.Persistence;

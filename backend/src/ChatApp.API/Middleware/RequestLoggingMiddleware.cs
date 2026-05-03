@@ -1,5 +1,8 @@
 namespace ChatApp.API.Middleware;
 
+/// <summary>
+/// Middleware ghi log method/path/status/duration cho mỗi HTTP request.
+/// </summary>
 public sealed class RequestLoggingMiddleware
 {
     private readonly RequestDelegate _next;

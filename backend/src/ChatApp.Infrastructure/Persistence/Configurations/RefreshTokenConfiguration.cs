@@ -4,12 +4,16 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ChatApp.Infrastructure.Persistence.Configurations;
 
+/// <summary>
+/// Mapping RefreshToken đã hash, phục vụ login session và token rotation.
+/// </summary>
 public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<RefreshToken>
 {
     public void Configure(EntityTypeBuilder<RefreshToken> builder)
     {
         builder.ToTable("RefreshTokens");
 
+        // RefreshToken.Id do domain tạo để token cũ có thể trỏ tới token thay thế.
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)
@@ -55,11 +59,13 @@ public sealed class RefreshTokenConfiguration : IEntityTypeConfiguration<Refresh
         builder.HasIndex(x => x.ExpiresAtUtc);
 
         builder.HasIndex(x => x.TokenHash)
+            // TokenHash phải duy nhất để một raw token chỉ khớp một session.
             .IsUnique();
 
         builder.HasOne<User>()
             .WithMany()
             .HasForeignKey(x => x.UserId)
+            // Xóa user thì các refresh token của user không còn dùng được.
             .OnDelete(DeleteBehavior.Cascade);
     }
 }

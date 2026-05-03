@@ -2,7 +2,9 @@ using System;
 
 namespace ChatApp.Domain.Entities;
 
-// constructor
+/// <summary>
+/// Đại diện tài khoản người dùng trong domain, gồm định danh đăng nhập và trạng thái hoạt động.
+/// </summary>
 public class User
 {
     public Guid Id { get; private set; }
@@ -17,6 +19,7 @@ public class User
 
     public User(Guid id, string username, string email, string passwordHash, string displayName, string? avatarUrl = null)
     {
+        // Guid.Empty bị chặn để entity luôn có khóa hợp lệ trước khi lưu qua EF Core.
         if (id == Guid.Empty)
             throw new ArgumentException("Id cannot be empty.", nameof(id));
 
@@ -43,8 +46,7 @@ public class User
         UpdatedAtUtc = CreatedAtUtc;
     }
 
-    ////parameterless constructor (constructor rỗng) => không dùng cho business logic, dùng cho Entity Framework Core.
-    ////Persistence Ignorance + Encapsulation pattern
+    // Constructor rỗng chỉ dành cho EF Core materialize entity, không dùng cho business flow.
     private User()
     {
         Username = string.Empty;
@@ -53,7 +55,9 @@ public class User
         DisplayName = string.Empty;
     }
 
-    // behavior
+    /// <summary>
+    /// Cập nhật tên hiển thị trong profile của user.
+    /// </summary>
     public void UpdateDisplayName(string displayName)
     {
         if (string.IsNullOrWhiteSpace(displayName))
@@ -98,12 +102,14 @@ public class User
 
     public void Deactivate()
     {
+        // Soft deactivate giúp khóa tài khoản mà vẫn giữ dữ liệu liên quan như message/room membership.
         IsActive = false;
         UpdatedAtUtc = DateTime.UtcNow;
     }
 
     public void Activate()
     {
+        // Kích hoạt lại tài khoản sau khi được phép sử dụng hệ thống.
         IsActive = true;
         UpdatedAtUtc = DateTime.UtcNow;
     }

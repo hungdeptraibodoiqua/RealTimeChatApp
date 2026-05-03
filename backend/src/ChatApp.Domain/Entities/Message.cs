@@ -2,6 +2,9 @@ using ChatApp.Domain.Enums;
 
 namespace ChatApp.Domain.Entities;
 
+/// <summary>
+/// Đại diện một tin nhắn trong room, gồm nội dung, người gửi và trạng thái edit/delete.
+/// </summary>
 public class Message
 {
     public Guid Id { get; private set; }
@@ -22,6 +25,7 @@ public class Message
         MessageType messageType,
         Guid? replyToMessageId = null)
     {
+        // Guid.Empty bị chặn để message có thể được tham chiếu bởi reply/read tracking.
         if (id == Guid.Empty)
             throw new ArgumentException("Id cannot be empty.", nameof(id));
 
@@ -42,6 +46,7 @@ public class Message
         SenderUserId = senderUserId;
         Content = content.Trim();
         MessageType = messageType;
+        // ReplyToMessageId là tùy chọn vì không phải message nào cũng là reply.
         ReplyToMessageId = replyToMessageId;
         CreatedAtUtc = DateTime.UtcNow;
         EditedAtUtc = null;
@@ -50,9 +55,11 @@ public class Message
 
     public void Edit(string newContent)
     {
+        // Message đã delete không được edit để giữ lịch sử thao tác nhất quán.
         if (DeletedAtUtc.HasValue)
             throw new InvalidOperationException("Deleted messages cannot be edited.");
 
+        // Hiện tại chỉ text message có nội dung editable.
         if (MessageType != MessageType.Text)
             throw new InvalidOperationException("Only text messages can be edited.");
 
@@ -65,6 +72,7 @@ public class Message
 
     public void Delete()
     {
+        // Soft delete giữ lại record để bảo toàn lịch sử room và reply reference.
         if (DeletedAtUtc.HasValue)
             return;
 
@@ -73,6 +81,7 @@ public class Message
 
     public bool IsSentBy(Guid userId)
     {
+        // Guid.Empty không đại diện user thật nên không thể là sender.
         if (userId == Guid.Empty)
             return false;
 
@@ -84,4 +93,3 @@ public class Message
         return ReplyToMessageId.HasValue;
     }
 }
-

@@ -4,6 +4,9 @@ using ChatApp.Domain.Enums;
 
 namespace ChatApp.Infrastructure.Persistence;
 
+/// <summary>
+/// EF Core DbContext map các Domain entity sang PostgreSQL thông qua các configuration trong Infrastructure.
+/// </summary>
 public class AppDbContext : DbContext
 {
     public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
@@ -22,6 +25,7 @@ public class AppDbContext : DbContext
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
+        // Tự động áp dụng toàn bộ IEntityTypeConfiguration để mapping tập trung trong thư mục Configurations.
         modelBuilder.ApplyConfigurationsFromAssembly(typeof(AppDbContext).Assembly);
         base.OnModelCreating(modelBuilder);
     }

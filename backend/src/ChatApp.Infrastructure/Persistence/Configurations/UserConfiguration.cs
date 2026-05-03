@@ -4,12 +4,16 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace ChatApp.Infrastructure.Persistence.Configurations;
 
+/// <summary>
+/// Mapping User domain entity sang bảng Users và các ràng buộc đăng nhập duy nhất.
+/// </summary>
 public sealed class UserConfiguration : IEntityTypeConfiguration<User>
 {
     public void Configure(EntityTypeBuilder<User> builder)
     {
         builder.ToTable("Users");
 
+        // Id do domain/application sinh, database không tự generate.
         builder.HasKey(x => x.Id);
 
         builder.Property(x => x.Id)
@@ -44,9 +48,11 @@ public sealed class UserConfiguration : IEntityTypeConfiguration<User>
             .IsRequired();
 
         builder.HasIndex(x => x.Email)
+            // Email là định danh đăng nhập nên phải duy nhất.
             .IsUnique();
 
         builder.HasIndex(x => x.Username)
+            // Username là định danh đăng nhập nên phải duy nhất.
             .IsUnique();
     }
 }

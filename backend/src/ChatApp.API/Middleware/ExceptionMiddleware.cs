@@ -3,6 +3,9 @@ using ChatApp.Application.Common.Exceptions;
 
 namespace ChatApp.API.Middleware;
 
+/// <summary>
+/// Middleware chuẩn hóa exception từ Controller/Application thành JSON response nhất quán.
+/// </summary>
 public sealed class ExceptionMiddleware
 {
     // JsonOptions này đảm bảo mọi lỗi từ API được serialize theo cùng một format JSON trước khi trả về frontend.

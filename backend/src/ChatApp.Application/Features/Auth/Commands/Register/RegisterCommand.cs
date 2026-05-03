@@ -1,5 +1,8 @@
 namespace ChatApp.Application.Features.Auth.Commands.Register;
 
+/// <summary>
+/// Request tạo tài khoản mới từ API, sau đó RegisterCommandHandler tạo User domain entity.
+/// </summary>
 public sealed class RegisterCommand
 {
     public string Username { get; init; } = string.Empty;

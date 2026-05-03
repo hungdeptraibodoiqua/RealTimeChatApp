@@ -3,6 +3,9 @@ using ChatApp.Domain.Enums;
 
 namespace ChatApp.Domain.Entities;
 
+/// <summary>
+/// Đại diện quan hệ một user tham gia một room, gồm role và tiến độ đọc tin nhắn.
+/// </summary>
 public class RoomMember
 {
     public Guid UserId { get; private set; }
@@ -12,9 +15,9 @@ public class RoomMember
     public DateTime? LeftAtUtc { get; private set; }
     public Guid? LastReadMessageId { get; private set; }
 
-    // constructor
     public RoomMember(Guid userId, Guid roomId, MemberRole role)
     {
+        // UserId và RoomId tạo thành khóa chính ghép nên không được là Guid.Empty.
         if (userId == Guid.Empty)
             throw new ArgumentException("UserId cannot be empty.", nameof(userId));
 
@@ -29,11 +32,12 @@ public class RoomMember
         LastReadMessageId = null;
     }
 
-    ////parameterless constructor (constructor rỗng) => không dùng cho business logic, dùng cho Entity Framework Core.
-    ////Persistence Ignorance + Encapsulation pattern
+    // Constructor rỗng chỉ dành cho EF Core khi load RoomMember từ database.
     private RoomMember() { }
 
-    // behavior
+    /// <summary>
+    /// Đổi vai trò thành viên trong phòng, ví dụ Owner/Admin/Member.
+    /// </summary>
     public void ChangeRole(MemberRole newRole)
     {
         if (Role == newRole)
@@ -44,6 +48,7 @@ public class RoomMember
 
     public void Leave()
     {
+        // LeftAtUtc giữ lịch sử membership thay vì xóa cứng record khỏi phòng.
         if (LeftAtUtc.HasValue)
             return;
 
@@ -52,19 +57,24 @@ public class RoomMember
 
     public void MarkAsRead(Guid lastReadMessageId)
     {
+        // LastReadMessageId là mốc tùy chọn để client biết user đã đọc tới message nào.
         if (lastReadMessageId == Guid.Empty)
             throw new ArgumentException("LastReadMessageId cannot be empty.", nameof(lastReadMessageId));
 
         LastReadMessageId = lastReadMessageId;
     }
 
-    // check owner
+    /// <summary>
+    /// Kiểm tra quyền owner để phục vụ rule quản trị phòng.
+    /// </summary>
     public bool IsOwner()
     {
         return Role == MemberRole.Owner;
     }
 
-    // check admin
+    /// <summary>
+    /// Kiểm tra quyền admin để phục vụ rule quản trị phòng.
+    /// </summary>
     public bool IsAdmin()
     {
         return Role == MemberRole.Admin;

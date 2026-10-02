@@ -78,6 +78,9 @@ builder.Services.AddApplication();
 // Nối API với lớp Infrastructure để Application có thể nhận implementation repository/service/realtime từ project Infrastructure.
 builder.Services.AddInfrastructure(builder.Configuration);
 
+// Đăng ký ChatNotifier để gửi SignalR notifications từ Controller ra client
+builder.Services.AddScoped<ChatApp.Application.Abstractions.Realtime.IChatNotifier, ChatApp.API.Services.ChatNotifier>();
+
 var app = builder.Build();
 
 if (app.Environment.IsDevelopment())
@@ -90,6 +93,9 @@ if (app.Environment.IsDevelopment())
 app.UseMiddleware<ExceptionMiddleware>();
 // Middleware này ghi lại request/response để theo dõi luồng dữ liệu HTTP từ client tới API và quay về client.
 app.UseMiddleware<RequestLoggingMiddleware>();
+
+// Phục vụ các file tĩnh (ảnh, video upload trong wwwroot)
+app.UseStaticFiles();
 
 // Kích hoạt CORS trước khi xác thực để các preflight request OPTIONS không bị chặn
 app.UseCors(corsPolicyName);

@@ -31,6 +31,9 @@ public static class DependencyInjection
 
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRefreshTokenRepository, RefreshTokenRepository>();
+        services.AddScoped<IRoomRepository, RoomRepository>();
+        services.AddScoped<IMessageRepository, MessageRepository>();
+        services.AddScoped<IFriendshipRepository, FriendshipRepository>();
         // Infrastructure cung cấp implementation cụ thể cho các contract mà Application định nghĩa.
         services.AddScoped<IUnitOfWork, UnitOfWork>();
         services.AddScoped<IPasswordHasher, PasswordHasher>();

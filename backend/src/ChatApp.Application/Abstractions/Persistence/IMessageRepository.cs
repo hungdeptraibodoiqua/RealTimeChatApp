@@ -1,10 +1,9 @@
 using ChatApp.Domain.Entities;
-using ChatApp.Domain.Enums;
 
 namespace ChatApp.Application.Abstractions.Persistence;
 
 /// <summary>
-/// Contract truy cập dữ liệu Message cho các use case gửi, đọc, sửa hoặc xóa tin nhắn.
+/// Contract truy cập dữ liệu Message cho các use case gửi, đọc, sửa, thu hồi hoặc xóa tin nhắn.
 /// </summary>
 public interface IMessageRepository
 {
@@ -17,4 +16,14 @@ public interface IMessageRepository
     /// Đưa message mới vào DbContext; repository không tự commit.
     /// </summary>
     Task AddAsync(Message message, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Lấy danh sách tin nhắn theo phòng theo thứ tự thời gian tăng dần, hỗ trợ phân trang.
+    /// </summary>
+    Task<List<Message>> GetRoomMessagesAsync(Guid roomId, int skip = 0, int take = 50, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Xóa hoàn toàn một tin nhắn khỏi cơ sở dữ liệu.
+    /// </summary>
+    Task DeleteAsync(Message message, CancellationToken cancellationToken = default);
 }

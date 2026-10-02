@@ -15,7 +15,11 @@ public class Message
     public DateTime CreatedAtUtc { get; private set; }
     public DateTime? EditedAtUtc { get; private set; }
     public DateTime? DeletedAtUtc { get; private set; }
+    public DateTime? RecalledAtUtc { get; private set; }
     public Guid? ReplyToMessageId { get; private set; }
+
+    // Khoảng thời gian cho phép chỉnh sửa hoặc thu hồi tin nhắn: 1 tiếng
+    private static readonly TimeSpan ModificationWindow = TimeSpan.FromHours(1);
 
     public Message(
         Guid id,
@@ -38,8 +42,8 @@ public class Message
         if (!Enum.IsDefined(typeof(MessageType), messageType))
             throw new ArgumentException("Invalid MessageType.", nameof(messageType));
 
-        if (messageType == MessageType.Text && string.IsNullOrWhiteSpace(content))
-            throw new ArgumentException("Content cannot be empty for text messages.", nameof(content));
+        if (string.IsNullOrWhiteSpace(content))
+            throw new ArgumentException("Content cannot be empty.", nameof(content));
 
         Id = id;
         RoomId = roomId;
@@ -51,6 +55,7 @@ public class Message
         CreatedAtUtc = DateTime.UtcNow;
         EditedAtUtc = null;
         DeletedAtUtc = null;
+        RecalledAtUtc = null;
     }
 
     public void Edit(string newContent)
@@ -59,15 +64,38 @@ public class Message
         if (DeletedAtUtc.HasValue)
             throw new InvalidOperationException("Deleted messages cannot be edited.");
 
+        if (RecalledAtUtc.HasValue)
+            throw new InvalidOperationException("Recalled messages cannot be edited.");
+
         // Hiện tại chỉ text message có nội dung editable.
         if (MessageType != MessageType.Text)
             throw new InvalidOperationException("Only text messages can be edited.");
+
+        // Kiểm tra thời hạn 1 giờ kể từ khi gửi tin nhắn
+        if (DateTime.UtcNow - CreatedAtUtc > ModificationWindow)
+            throw new InvalidOperationException("Tin nhắn chỉ có thể chỉnh sửa trong vòng 1 tiếng kể từ khi gửi.");
 
         if (string.IsNullOrWhiteSpace(newContent))
             throw new ArgumentException("New content cannot be empty.", nameof(newContent));
 
         Content = newContent.Trim();
         EditedAtUtc = DateTime.UtcNow;
+    }
+
+    public void Recall()
+    {
+        if (DeletedAtUtc.HasValue)
+            throw new InvalidOperationException("Deleted messages cannot be recalled.");
+
+        if (RecalledAtUtc.HasValue)
+            return;
+
+        // Kiểm tra thời hạn 1 giờ kể từ khi gửi tin nhắn
+        if (DateTime.UtcNow - CreatedAtUtc > ModificationWindow)
+            throw new InvalidOperationException("Tin nhắn chỉ có thể thu hồi trong vòng 1 tiếng kể từ khi gửi.");
+
+        RecalledAtUtc = DateTime.UtcNow;
+        Content = "Tin nhắn đã bị thu hồi";
     }
 
     public void Delete()

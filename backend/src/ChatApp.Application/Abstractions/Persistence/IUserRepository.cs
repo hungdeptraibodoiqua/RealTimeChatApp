@@ -26,4 +26,9 @@ public interface IUserRepository
     /// Đưa user mới vào DbContext; việc commit do IUnitOfWork xử lý.
     /// </summary>
     Task AddAsync(User user, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Tìm kiếm người dùng theo username hoặc displayName để kết bạn hoặc mời vào phòng.
+    /// </summary>
+    Task<List<User>> SearchUsersAsync(string query, Guid currentUserId, int limit = 20, CancellationToken cancellationToken = default);
 }

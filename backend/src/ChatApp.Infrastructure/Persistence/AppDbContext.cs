@@ -23,6 +23,8 @@ public class AppDbContext : DbContext
 
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
 
+    public DbSet<Friendship> Friendships => Set<Friendship>();
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         // Tự động áp dụng toàn bộ IEntityTypeConfiguration để mapping tập trung trong thư mục Configurations.

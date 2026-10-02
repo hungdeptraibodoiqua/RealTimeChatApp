@@ -22,6 +22,46 @@ public class ChatHub : Hub
         _logger = logger;
     }
 
+    /// <summary>
+    /// Tham gia vào nhóm phòng chat để nhận các tin nhắn và sự kiện realtime của phòng đó.
+    /// </summary>
+    public async Task JoinRoom(string roomId)
+    {
+        await Groups.AddToGroupAsync(Context.ConnectionId, roomId);
+        _logger.LogInformation("Connection {ConnId} đã tham gia nhóm {RoomId}", Context.ConnectionId, roomId);
+    }
+
+    /// <summary>
+    /// Rời khỏi nhóm phòng chat khi đổi phòng hoặc đóng khung chat.
+    /// </summary>
+    public async Task LeaveRoom(string roomId)
+    {
+        await Groups.RemoveFromGroupAsync(Context.ConnectionId, roomId);
+        _logger.LogInformation("Connection {ConnId} đã rời nhóm {RoomId}", Context.ConnectionId, roomId);
+    }
+
+    /// <summary>
+    /// Phát trạng thái đang gõ phím (Typing Indicator) tới các thành viên khác trong phòng.
+    /// </summary>
+    public async Task SendTyping(string roomId, bool isTyping)
+    {
+        var userId = Context.User?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        var displayName = Context.User?.FindFirst(ClaimTypes.Name)?.Value
+            ?? Context.User?.FindFirst("name")?.Value
+            ?? "Ai đó";
+
+        if (!string.IsNullOrEmpty(userId))
+        {
+            await Clients.OthersInGroup(roomId).SendAsync("UserTyping", new
+            {
+                RoomId = roomId,
+                UserId = userId,
+                DisplayName = displayName,
+                IsTyping = isTyping
+            });
+        }
+    }
+
     public override async Task OnConnectedAsync()
     {
         // Đọc userId từ JWT claim đã được JwtBearerHandler giải mã

@@ -42,6 +42,8 @@ public sealed class MessageConfiguration : IEntityTypeConfiguration<Message>
 
         builder.Property(x => x.DeletedAtUtc);
 
+        builder.Property(x => x.RecalledAtUtc);
+
         builder.HasIndex(x => new { x.RoomId, x.CreatedAtUtc });
         // Index trên RoomId + CreatedAtUtc hỗ trợ truy vấn timeline message theo phòng.
 

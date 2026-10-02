@@ -45,4 +45,15 @@ public sealed class UserRepository : IUserRepository
         // Repository chỉ stage entity vào DbContext; UnitOfWork sẽ commit.
         await _dbContext.Users.AddAsync(user, cancellationToken);
     }
+
+    public async Task<List<User>> SearchUsersAsync(string query, Guid currentUserId, int limit = 20, CancellationToken cancellationToken = default)
+    {
+        var trimmed = query.Trim().ToLower();
+        return await _dbContext.Users
+            .AsNoTracking()
+            .Where(u => u.Id != currentUserId && u.IsActive &&
+                        (u.Username.ToLower().Contains(trimmed) || u.DisplayName.ToLower().Contains(trimmed)))
+            .Take(limit)
+            .ToListAsync(cancellationToken);
+    }
 }

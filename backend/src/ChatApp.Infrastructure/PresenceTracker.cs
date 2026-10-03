@@ -71,4 +71,24 @@ public sealed class PresenceTracker
 
         return _onlineUsers.ContainsKey(userId);
     }
+
+    /// <summary>
+    /// Lấy danh sách toàn bộ ConnectionId đang hoạt động của một user cụ thể.
+    /// Phục vụ việc đưa kết nối của user vào SignalR group ngay khi được thêm vào phòng.
+    /// </summary>
+    public IReadOnlyList<string> GetConnections(Guid userId)
+    {
+        if (userId == Guid.Empty)
+            return Array.Empty<string>();
+
+        if (_onlineUsers.TryGetValue(userId, out var connections))
+        {
+            lock (connections)
+            {
+                return connections.ToList();
+            }
+        }
+
+        return Array.Empty<string>();
+    }
 }

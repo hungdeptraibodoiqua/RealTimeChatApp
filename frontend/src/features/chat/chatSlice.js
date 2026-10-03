@@ -88,12 +88,16 @@ const chatSlice = createSlice({
   },
   reducers: {
     setActiveRoom: (state, action) => {
-      state.activeRoomId = action.payload;
+      // Chuẩn hóa activeRoomId sang chữ thường để đồng bộ với state map
+      state.activeRoomId = action.payload ? action.payload.toString().toLowerCase() : null;
     },
-    // Nhận tin nhắn mới từ SignalR
+    // Nhận tin nhắn mới từ SignalR (tương thích cả roomId camelCase và RoomId PascalCase từ server)
     messageReceived: (state, action) => {
       const message = action.payload;
-      const roomId = message.roomId;
+      const rawRoomId = message.roomId || message.RoomId;
+      if (!rawRoomId) return;
+      const roomId = rawRoomId.toString().toLowerCase();
+
       if (!state.messagesByRoom[roomId]) {
         state.messagesByRoom[roomId] = [];
       }
@@ -105,7 +109,11 @@ const chatSlice = createSlice({
     },
     // Nhận sự kiện thu hồi tin nhắn từ SignalR
     messageRecalledReceived: (state, action) => {
-      const { roomId, messageId } = action.payload;
+      const rawRoomId = action.payload.roomId || action.payload.RoomId;
+      const messageId = action.payload.messageId || action.payload.MessageId;
+      if (!rawRoomId) return;
+      const roomId = rawRoomId.toString().toLowerCase();
+
       const list = state.messagesByRoom[roomId];
       if (list) {
         const msg = list.find((m) => m.id === messageId);
@@ -117,7 +125,13 @@ const chatSlice = createSlice({
     },
     // Nhận sự kiện sửa tin nhắn từ SignalR
     messageEditedReceived: (state, action) => {
-      const { roomId, messageId, newContent, editedAtUtc } = action.payload;
+      const rawRoomId = action.payload.roomId || action.payload.RoomId;
+      const messageId = action.payload.messageId || action.payload.MessageId;
+      const newContent = action.payload.newContent || action.payload.NewContent;
+      const editedAtUtc = action.payload.editedAtUtc || action.payload.EditedAtUtc;
+      if (!rawRoomId) return;
+      const roomId = rawRoomId.toString().toLowerCase();
+
       const list = state.messagesByRoom[roomId];
       if (list) {
         const msg = list.find((m) => m.id === messageId);
@@ -129,16 +143,27 @@ const chatSlice = createSlice({
     },
     // Nhận sự kiện xóa tin nhắn từ SignalR
     messageDeletedReceived: (state, action) => {
-      const { roomId, messageId } = action.payload;
+      const rawRoomId = action.payload.roomId || action.payload.RoomId;
+      const messageId = action.payload.messageId || action.payload.MessageId;
+      if (!rawRoomId) return;
+      const roomId = rawRoomId.toString().toLowerCase();
+
       if (state.messagesByRoom[roomId]) {
         state.messagesByRoom[roomId] = state.messagesByRoom[roomId].filter(
           (m) => m.id !== messageId
         );
       }
     },
-    // Cập nhật trạng thái typing của user khác
+    // Cập nhật trạng thái typing của user khác với roomId và fields chuẩn hóa
     userTypingReceived: (state, action) => {
-      const { roomId, userId, displayName, isTyping } = action.payload;
+      const payload = action.payload;
+      const rawRoomId = payload.roomId || payload.RoomId;
+      if (!rawRoomId) return;
+      const roomId = rawRoomId.toString().toLowerCase();
+      const userId = payload.userId || payload.UserId;
+      const displayName = payload.displayName || payload.DisplayName;
+      const isTyping = payload.isTyping ?? payload.IsTyping;
+
       if (!state.typingUsers[roomId]) {
         state.typingUsers[roomId] = {};
       }
@@ -159,7 +184,8 @@ const chatSlice = createSlice({
       })
       .addCase(fetchMessages.fulfilled, (state, action) => {
         state.loading = false;
-        const { roomId, messages } = action.payload;
+        const { roomId: rawRoomId, messages } = action.payload;
+        const roomId = rawRoomId ? rawRoomId.toString().toLowerCase() : '';
         state.messagesByRoom[roomId] = messages;
       })
       .addCase(fetchMessages.rejected, (state, action) => {
@@ -168,7 +194,10 @@ const chatSlice = createSlice({
       })
       .addCase(sendMessage.fulfilled, (state, action) => {
         const message = action.payload;
-        const roomId = message.roomId;
+        const rawRoomId = message.roomId || message.RoomId;
+        if (!rawRoomId) return;
+        const roomId = rawRoomId.toString().toLowerCase();
+
         if (!state.messagesByRoom[roomId]) {
           state.messagesByRoom[roomId] = [];
         }
@@ -179,7 +208,10 @@ const chatSlice = createSlice({
       })
       .addCase(uploadMedia.fulfilled, (state, action) => {
         const message = action.payload;
-        const roomId = message.roomId;
+        const rawRoomId = message.roomId || message.RoomId;
+        if (!rawRoomId) return;
+        const roomId = rawRoomId.toString().toLowerCase();
+
         if (!state.messagesByRoom[roomId]) {
           state.messagesByRoom[roomId] = [];
         }

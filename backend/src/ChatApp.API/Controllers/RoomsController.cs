@@ -156,17 +156,40 @@ public class RoomsController : ControllerBase
         if (targetUser == null)
             return NotFound(new { detail = "Người dùng không tồn tại." });
 
+        var room = await _roomRepository.GetByIdAsync(roomId);
+        if (room == null)
+            return NotFound(new { detail = "Phòng không tồn tại." });
+
         var newMember = new RoomMember(request.UserId, roomId, MemberRole.Member);
         await _roomRepository.AddMemberAsync(newMember);
         await _unitOfWork.SaveChangesAsync();
 
-        return Ok(new
+        var roomDto = new
+        {
+            room.Id,
+            room.Name,
+            Type = (int)room.Type,
+            room.CreatedByUserId,
+            room.CreatedAtUtc,
+            room.UpdatedAtUtc
+        };
+
+        var memberDto = new
         {
             newMember.UserId,
             newMember.RoomId,
             Role = (int)newMember.Role,
-            DisplayName = targetUser.DisplayName
-        });
+            DisplayName = targetUser.DisplayName,
+            Username = targetUser.Username
+        };
+
+        // Báo cho user vừa được thêm biết để UI tự nhảy phòng mới mà không cần refresh
+        await _chatNotifier.UserAddedToRoomAsync(request.UserId, roomDto);
+
+        // Báo cho các thành viên trong phòng biết có người mới vào
+        await _chatNotifier.MemberAddedAsync(roomId, memberDto);
+
+        return Ok(memberDto);
     }
 
     /// <summary>
@@ -271,6 +294,7 @@ public class RoomsController : ControllerBase
 
     /// <summary>
     /// Xóa toàn bộ phòng chat (Chỉ Owner mới có quyền xóa).
+    /// Phát sự kiện SignalR RoomDeleted tới toàn bộ thành viên để cập nhật danh sách tức thì không cần F5.
     /// </summary>
     [HttpDelete("{roomId:guid}")]
     public async Task<IActionResult> DeleteRoom(Guid roomId)
@@ -283,8 +307,16 @@ public class RoomsController : ControllerBase
         var room = await _roomRepository.GetByIdAsync(roomId);
         if (room != null)
         {
+            // Lấy danh sách thành viên trước khi bản ghi bị xóa khỏi cơ sở dữ liệu
+            var members = await _roomRepository.GetRoomMembersAsync(roomId);
+            var memberUserIds = members.Select(m => m.UserId).ToList();
+
+            // Xóa phòng và toàn bộ dữ liệu liên quan trong DB
             await _roomRepository.DeleteAsync(room);
             await _unitOfWork.SaveChangesAsync();
+
+            // Phát thông báo realtime tới toàn bộ thành viên qua SignalR (không cần F5)
+            await _chatNotifier.RoomDeletedAsync(roomId, memberUserIds);
         }
 
         return Ok(new { message = "Đã xóa phòng chat thành công." });

@@ -37,6 +37,9 @@ public sealed class JwtTokenGenerator : IJwtTokenGenerator
             new(ClaimTypes.Email, user.Email),
             // username là claim custom để client/API có thể đọc nhanh tên đăng nhập.
             new("username", user.Username),
+            // Name và displayName dùng cho SignalR ChatHub đọc tên thật của user khi phát typing
+            new(ClaimTypes.Name, user.DisplayName),
+            new("displayName", user.DisplayName),
             // jti định danh access token, dùng để liên kết với refresh token trong auth flow.
             new(JwtRegisteredClaimNames.Jti, string.IsNullOrWhiteSpace(jwtId) ? Guid.NewGuid().ToString("N") : jwtId)
         };

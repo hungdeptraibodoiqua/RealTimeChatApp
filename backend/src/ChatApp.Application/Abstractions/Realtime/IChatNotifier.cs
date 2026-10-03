@@ -52,6 +52,16 @@ public interface IChatNotifier
     Task MemberRemovedAsync(Guid roomId, Guid userId, CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Thông báo cho user cụ thể khi họ vừa được thêm vào một phòng chat mới để cập nhật danh sách tức thì.
+    /// </summary>
+    Task UserAddedToRoomAsync(Guid userId, object roomDto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Thông báo cho các thành viên trong phòng biết có người mới vừa được thêm vào.
+    /// </summary>
+    Task MemberAddedAsync(Guid roomId, object memberDto, CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Gửi thông báo tới riêng người nhận khi có lời mời kết bạn mới.
     /// </summary>
     Task FriendRequestReceivedAsync(Guid targetUserId, object requestDto, CancellationToken cancellationToken = default);
@@ -60,4 +70,10 @@ public interface IChatNotifier
     /// Gửi thông báo tới người gửi lời mời khi lời mời được đối phương chấp nhận.
     /// </summary>
     Task FriendRequestAcceptedAsync(Guid requesterUserId, object friendshipDto, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Thông báo cho toàn bộ thành viên trong phòng biết phòng chat đã bị Chủ phòng xóa hoàn toàn.
+    /// Phục vụ cập nhật tức thì danh sách phòng và đóng khung chat phía các thành viên realtime.
+    /// </summary>
+    Task RoomDeletedAsync(Guid roomId, IEnumerable<Guid>? memberUserIds = null, CancellationToken cancellationToken = default);
 }

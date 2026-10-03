@@ -6,7 +6,8 @@ import Modal from '../../components/common/Modal'
 import Input from '../../components/common/Input'
 import Button from '../../components/common/Button'
 
-export default function CreateRoomModal({ onClose }) {
+// Nhận prop onRoomCreated từ ChatPage để tự động mở phòng ngay sau khi tạo thành công
+export default function CreateRoomModal({ onClose, onRoomCreated }) {
   const dispatch = useDispatch()
   const [name, setName] = useState('')
   const [type, setType] = useState(ROOM_TYPE.GROUP)
@@ -17,7 +18,12 @@ export default function CreateRoomModal({ onClose }) {
     if (!name.trim()) return setError('Vui lòng nhập tên phòng')
     setLoading(true)
     try {
-      await dispatch(createRoom({ name: name.trim(), type })).unwrap()
+      // Ép kiểu type thành Number để khớp với enum RoomType (int) ở Backend .NET
+      const newRoom = await dispatch(createRoom({ name: name.trim(), type: Number(type) })).unwrap()
+      // Kích hoạt chọn phòng vừa tạo để người dùng bắt đầu chat ngay mà không cần tìm kiếm
+      if (onRoomCreated && newRoom) {
+        onRoomCreated(newRoom)
+      }
       onClose()
     } catch (err) {
       setError(err)

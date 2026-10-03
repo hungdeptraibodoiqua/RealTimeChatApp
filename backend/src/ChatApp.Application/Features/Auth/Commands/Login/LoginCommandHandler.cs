@@ -67,6 +67,7 @@ public sealed class LoginCommandHandler
         {
             Id = user.Id,
             Username = user.Username,
+            DisplayName = user.DisplayName,
             Email = user.Email
         };
 

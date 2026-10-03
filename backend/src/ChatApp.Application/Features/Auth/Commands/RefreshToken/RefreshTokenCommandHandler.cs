@@ -71,6 +71,7 @@ public sealed class RefreshTokenCommandHandler
         {
             Id = user.Id,
             Username = user.Username,
+            DisplayName = user.DisplayName,
             Email = user.Email
         };
 

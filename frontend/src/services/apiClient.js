@@ -46,6 +46,10 @@ apiClient.interceptors.response.use(
         friendlyMessage = 'Phiên đăng nhập đã hết hạn hoặc không có quyền truy cập.';
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        // Tự động chuyển về trang login nếu đang ở các trang cần xác thực
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login' && window.location.pathname !== '/register') {
+          window.location.href = '/login';
+        }
       }
     } else if (error.request) {
       // Lỗi do không kết nối được tới server hoặc bị CORS chặn

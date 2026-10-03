@@ -2,22 +2,31 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { useNavigate } from 'react-router-dom';
 import { logout } from '../features/auth/authSlice';
-import { fetchRooms } from '../features/rooms/roomsSlice';
+// roomsSlice: Tải danh sách phòng, thêm phòng realtime, xóa phòng realtime và theo dõi online/đổi chủ phòng
 import {
-  fetchMessages,
-  sendMessage,
-  uploadMedia,
-  recallMessage,
-  editMessage,
-  deleteMessage,
+  fetchRooms,
+  roomAdded,
+  roomDeleted,
+  userOnlineStatusChanged,
+  ownerTransferredReceived,
+} from '../features/rooms/roomsSlice';
+
+// chatSlice: Bổ sung import đầy đủ các action và thunk điều khiển tin nhắn và chọn phòng chat
+import {
   setActiveRoom,
   messageReceived,
   messageRecalledReceived,
   messageEditedReceived,
   messageDeletedReceived,
   userTypingReceived,
+  fetchMessages,
+  sendMessage,
+  uploadMedia,
+  recallMessage,
+  editMessage,
+  deleteMessage,
 } from '../features/chat/chatSlice';
-import { userOnlineStatusChanged, ownerTransferredReceived } from '../features/rooms/roomsSlice';
+
 import { signalrService } from '../services/signalrService';
 
 import MessageList from '../features/chat/MessageList';
@@ -46,87 +55,142 @@ export default function ChatPage() {
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [showFriendModal, setShowFriendModal] = useState(false);
 
-  const activeRoom = rooms.find((r) => r.id === activeRoomId);
+  // Tìm phòng đang được chọn trong danh sách, hỗ trợ cả id camelCase và Id PascalCase
+  const activeRoom = rooms.find(
+    (r) => (r.id || r.Id)?.toString().toLowerCase() === activeRoomId
+  );
   const currentMessages = activeRoomId ? messagesByRoom[activeRoomId] || [] : [];
   const currentTyping = activeRoomId ? typingUsers[activeRoomId] || {} : {};
 
-  // 1. Khởi tạo SignalR Connection và đăng ký các listeners realtime
+  // Lưu activeRoomId vào ref để handler sự kiện SignalR luôn đọc được ID phòng mới nhất mà không bị stale closure
+  const activeRoomIdRef = useRef(activeRoomId);
+  useEffect(() => {
+    activeRoomIdRef.current = activeRoomId;
+  }, [activeRoomId]);
+
+  // 1. Khởi tạo SignalR Connection và đăng ký các listeners realtime qua signalrService
   useEffect(() => {
     let isMounted = true;
 
+    // Định nghĩa các handler cập nhật Redux store khi nhận sự kiện từ SignalR
+    const handleUserOnline = (userId) => {
+      dispatch(userOnlineStatusChanged({ userId, isOnline: true }));
+    };
+    const handleUserOffline = (userId) => {
+      dispatch(userOnlineStatusChanged({ userId, isOnline: false }));
+    };
+    const handleReceiveMessage = (message) => {
+      dispatch(messageReceived(message));
+    };
+    const handleMessageRecalled = ({ roomId, messageId }) => {
+      dispatch(messageRecalledReceived({ roomId, messageId }));
+    };
+    const handleMessageEdited = ({ roomId, messageId, newContent, editedAtUtc }) => {
+      dispatch(messageEditedReceived({ roomId, messageId, newContent, editedAtUtc }));
+    };
+    const handleMessageDeleted = ({ roomId, messageId }) => {
+      dispatch(messageDeletedReceived({ roomId, messageId }));
+    };
+    const handleAddedToRoom = async (newRoom) => {
+      dispatch(roomAdded(newRoom));
+      const newRoomId = (newRoom.id || newRoom.Id)?.toString().toLowerCase();
+      if (newRoomId) {
+        await signalrService.joinRoom(newRoomId);
+      }
+    };
+    const handleTypingEvent = (payload) => {
+      dispatch(userTypingReceived(payload));
+    };
+    const handleOwnerTransferred = ({ roomId, oldOwnerId, newOwnerId }) => {
+      dispatch(ownerTransferredReceived({ roomId, newOwnerId }));
+    };
+    // Lắng nghe sự kiện phòng chat bị xóa realtime (khắc phục lỗi thành viên phải refresh trang)
+    const handleRoomDeleted = (deletedRoomId) => {
+      const normalizedId = deletedRoomId ? deletedRoomId.toString().toLowerCase() : null;
+      if (!normalizedId) return;
+
+      // Xóa phòng khỏi Redux store danh sách phòng
+      dispatch(roomDeleted(normalizedId));
+
+      // Nếu thành viên đang mở xem chính phòng bị xóa, đóng phòng và thông báo
+      if (activeRoomIdRef.current === normalizedId) {
+        dispatch(setActiveRoom(null));
+        alert('Phòng chat này đã bị Chủ phòng xóa.');
+      }
+    };
+
+    // Đăng ký listeners vào signalrService (tự động gắn vào connection hiện tại và duy trì qua reconnect)
+    signalrService.on('UserIsOnline', handleUserOnline);
+    signalrService.on('UserIsOffline', handleUserOffline);
+    signalrService.on('ReceiveMessage', handleReceiveMessage);
+    signalrService.on('MessageRecalled', handleMessageRecalled);
+    signalrService.on('MessageEdited', handleMessageEdited);
+    signalrService.on('MessageDeleted', handleMessageDeleted);
+    signalrService.on('AddedToRoom', handleAddedToRoom);
+    signalrService.on('ReceiveTyping', handleTypingEvent);
+    signalrService.on('UserTyping', handleTypingEvent);
+    signalrService.on('OwnerTransferred', handleOwnerTransferred);
+    signalrService.on('RoomDeleted', handleRoomDeleted);
+
     const setupSignalR = async () => {
       try {
-        const connection = await signalrService.startConnection();
-        if (!isMounted) return;
-        setIsSignalrConnected(true);
-
-        // Lắng nghe sự kiện Online/Offline
-        connection.on('UserIsOnline', (userId) => {
-          dispatch(userOnlineStatusChanged({ userId, isOnline: true }));
-        });
-        connection.on('UserIsOffline', (userId) => {
-          dispatch(userOnlineStatusChanged({ userId, isOnline: false }));
-        });
-
-        // Lắng nghe tin nhắn mới từ phòng
-        connection.on('ReceiveMessage', (message) => {
-          dispatch(messageReceived(message));
-        });
-
-        // Lắng nghe thu hồi tin nhắn
-        connection.on('MessageRecalled', ({ roomId, messageId }) => {
-          dispatch(messageRecalledReceived({ roomId, messageId }));
-        });
-
-        // Lắng nghe sửa tin nhắn
-        connection.on('MessageEdited', ({ roomId, messageId, newContent, editedAtUtc }) => {
-          dispatch(messageEditedReceived({ roomId, messageId, newContent, editedAtUtc }));
-        });
-
-        // Lắng nghe xóa tin nhắn
-        connection.on('MessageDeleted', ({ roomId, messageId }) => {
-          dispatch(messageDeletedReceived({ roomId, messageId }));
-        });
-
-        // Lắng nghe typing indicator
-        connection.on('UserTyping', ({ roomId, userId, displayName, isTyping }) => {
-          dispatch(userTypingReceived({ roomId, userId, displayName, isTyping }));
-        });
-
-        // Lắng nghe đổi chủ phòng (Owner Transferred)
-        connection.on('OwnerTransferred', ({ roomId, oldOwnerId, newOwnerId }) => {
-          dispatch(ownerTransferredReceived({ roomId, newOwnerId }));
-        });
+        await signalrService.startConnection();
+        if (isMounted) {
+          setIsSignalrConnected(true);
+        }
       } catch (err) {
-        if (!isMounted) return;
-        console.error('Không thể kết nối SignalR:', err);
-        setIsSignalrConnected(false);
+        if (isMounted) {
+          console.error('Không thể kết nối SignalR:', err);
+          setIsSignalrConnected(false);
+        }
       }
     };
 
     setupSignalR();
     dispatch(fetchRooms());
 
+    // Dọn dẹp listeners khi unmount
     return () => {
       isMounted = false;
-      signalrService.stopConnection();
+      signalrService.off('UserIsOnline', handleUserOnline);
+      signalrService.off('UserIsOffline', handleUserOffline);
+      signalrService.off('ReceiveMessage', handleReceiveMessage);
+      signalrService.off('MessageRecalled', handleMessageRecalled);
+      signalrService.off('MessageEdited', handleMessageEdited);
+      signalrService.off('MessageDeleted', handleMessageDeleted);
+      signalrService.off('AddedToRoom', handleAddedToRoom);
+      signalrService.off('ReceiveTyping', handleTypingEvent);
+      signalrService.off('UserTyping', handleTypingEvent);
+      signalrService.off('OwnerTransferred', handleOwnerTransferred);
+      signalrService.off('RoomDeleted', handleRoomDeleted);
     };
   }, [dispatch]);
 
-  // 2. Chuyển phòng chat: Rời phòng cũ và Join phòng mới trên Hub
+  // 2. Tự động gia nhập nhóm SignalR của phòng chat mỗi khi activeRoomId thay đổi
+  useEffect(() => {
+    if (activeRoomId) {
+      signalrService.joinRoom(activeRoomId);
+    }
+  }, [activeRoomId]);
+
+  // 3. Chuyển phòng chat: Rời phòng cũ và Join phòng mới trên Hub
   const handleSelectRoom = async (roomId) => {
-    if (activeRoomId === roomId) return;
+    const normalizedRoomId = roomId ? roomId.toString().toLowerCase() : null;
+    if (!normalizedRoomId || activeRoomId === normalizedRoomId) return;
 
     if (activeRoomId) {
       await signalrService.leaveRoom(activeRoomId);
     }
 
-    dispatch(setActiveRoom(roomId));
-    await signalrService.joinRoom(roomId);
-    dispatch(fetchMessages({ roomId }));
+    // Cập nhật phòng active trong Redux store (chatSlice)
+    dispatch(setActiveRoom(normalizedRoomId));
+    // Tham gia phòng SignalR để nhận tin nhắn realtime của phòng này
+    await signalrService.joinRoom(normalizedRoomId);
+    // Tải lịch sử tin nhắn phòng từ Backend API
+    dispatch(fetchMessages({ roomId: normalizedRoomId }));
   };
 
-  // 3. Các handler tương tác tin nhắn
+  // 4. Các handler tương tác tin nhắn
   const handleSendMessage = (content) => {
     if (!activeRoomId) return;
     dispatch(sendMessage({ roomId: activeRoomId, content }));
@@ -229,11 +293,12 @@ export default function ChatPage() {
               </div>
             ) : (
               rooms.map((room) => {
-                const isActive = room.id === activeRoomId;
+                const roomId = (room.id || room.Id)?.toString().toLowerCase();
+                const isActive = roomId === activeRoomId;
                 return (
                   <div
-                    key={room.id}
-                    onClick={() => handleSelectRoom(room.id)}
+                    key={roomId || room.name}
+                    onClick={() => handleSelectRoom(roomId)}
                     style={{
                       ...styles.roomItem,
                       backgroundColor: isActive ? '#334155' : 'transparent',
@@ -294,7 +359,7 @@ export default function ChatPage() {
 
               {/* Thanh nhập tin nhắn */}
               <MessageInput
-                roomId={activeRoom.id}
+                roomId={(activeRoom.id || activeRoom.Id)?.toString().toLowerCase()}
                 onSendMessage={handleSendMessage}
                 onUploadMedia={handleUploadMedia}
                 onSendTyping={handleSendTyping}
@@ -320,7 +385,15 @@ export default function ChatPage() {
 
       {/* Các Modals chức năng */}
       {showCreateModal && (
-        <CreateRoomModal onClose={() => setShowCreateModal(false)} />
+        <CreateRoomModal
+          onClose={() => setShowCreateModal(false)}
+          onRoomCreated={(newRoom) => {
+            const newRoomId = (newRoom.id || newRoom.Id)?.toString().toLowerCase();
+            if (newRoomId) {
+              handleSelectRoom(newRoomId);
+            }
+          }}
+        />
       )}
 
       {showSettingsModal && activeRoom && (

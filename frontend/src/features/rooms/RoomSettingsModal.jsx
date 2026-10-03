@@ -4,6 +4,8 @@ import { deleteRoom, leaveRoom } from './roomsSlice';
 import { selectCurrentUser } from '../auth/authSelectors';
 import { roomService } from '../../services/roomService';
 import { userService } from '../../services/userService';
+// friendService: Giao tiếp với FriendsController để lấy danh sách bạn bè của user đăng nhập
+import { friendService } from '../../services/friendService';
 import { MEMBER_ROLE } from '../../utils/constants';
 import Modal from '../../components/common/Modal';
 import Button from '../../components/common/Button';
@@ -21,6 +23,9 @@ export default function RoomSettingsModal({ room, onClose }) {
   const dispatch = useDispatch();
   const currentUser = useSelector(selectCurrentUser);
   const [members, setMembers] = useState([]);
+  // Danh sách bạn bè để chọn nhanh khi thêm vào phòng (khắc phục Bug 1)
+  const [friends, setFriends] = useState([]);
+  const [loadingFriends, setLoadingFriends] = useState(false);
   const [searchUserQuery, setSearchUserQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -30,17 +35,30 @@ export default function RoomSettingsModal({ room, onClose }) {
   const isOwner = myRole === MEMBER_ROLE.OWNER;
   const canManage = isOwner || myRole === MEMBER_ROLE.ADMIN;
 
-  const loadMembers = async () => {
+  // Lọc ra những người bạn chưa có mặt trong phòng chat này
+  const availableFriends = friends.filter(
+    (f) => !members.some((m) => m.userId === f.friendUserId)
+  );
+
+  // Tải đồng thời danh sách thành viên trong phòng (roomService) và danh sách bạn bè (friendService)
+  const loadData = async () => {
     try {
-      const data = await roomService.getMembers(room.id);
-      setMembers(data);
+      setLoadingFriends(true);
+      const [membersData, friendsData] = await Promise.all([
+        roomService.getMembers(room.id),
+        friendService.getMyFriends().catch(() => []),
+      ]);
+      setMembers(membersData);
+      setFriends(friendsData);
     } catch (err) {
-      setActionError(err.message || 'Không thể tải danh sách thành viên.');
+      setActionError(err.message || 'Không thể tải dữ liệu thành viên và bạn bè.');
+    } finally {
+      setLoadingFriends(false);
     }
   };
 
   useEffect(() => {
-    loadMembers();
+    loadData();
   }, [room.id]);
 
   const handleSearchUsers = async (e) => {
@@ -66,10 +84,11 @@ export default function RoomSettingsModal({ room, onClose }) {
   const handleAddMember = async (userId) => {
     setActionError('');
     try {
+      // Gọi API thêm thành viên vào phòng (RoomsController.AddMember -> ChatNotifier.UserAddedToRoomAsync)
       await roomService.addMember(room.id, userId);
       setSearchUserQuery('');
       setSearchResults([]);
-      await loadMembers();
+      await loadData();
     } catch (err) {
       setActionError(err.message || 'Không thể thêm thành viên.');
     }
@@ -93,7 +112,7 @@ export default function RoomSettingsModal({ room, onClose }) {
     setActionError('');
     try {
       await roomService.transferOwner(room.id, newOwnerUserId);
-      await loadMembers();
+      await loadData();
       alert('Đã chuyển quyền Chủ phòng thành công!');
     } catch (err) {
       setActionError(err.message || 'Không thể chuyển quyền chủ phòng.');
@@ -142,10 +161,42 @@ export default function RoomSettingsModal({ room, onClose }) {
     <Modal title={`Cài đặt: ${room.name}`} onClose={onClose}>
       {actionError && <div style={styles.errorBanner}>{actionError}</div>}
 
-      {/* Phần thêm thành viên mới */}
+      {/* Phần thêm thành viên mới: Hiển thị danh sách bạn bè chọn nhanh + Ô tìm kiếm user */}
       {canManage && (
         <div style={styles.addSection}>
-          <div style={styles.sectionHeader}>Thêm thành viên mới</div>
+          <div style={styles.sectionHeader}>Chọn nhanh từ danh sách bạn bè</div>
+          {loadingFriends ? (
+            <div style={styles.subText}>Đang tải danh sách bạn bè...</div>
+          ) : availableFriends.length === 0 ? (
+            <div style={styles.subText}>
+              {friends.length === 0
+                ? 'Bạn chưa có bạn bè nào trong danh bạ.'
+                : 'Tất cả bạn bè của bạn đã có mặt trong phòng chat này.'}
+            </div>
+          ) : (
+            <div style={styles.quickFriendList}>
+              {availableFriends.map((friend) => (
+                <div key={friend.friendUserId} style={styles.quickFriendCard}>
+                  <div style={styles.quickFriendAvatar}>
+                    {friend.displayName?.[0]?.toUpperCase() || 'U'}
+                  </div>
+                  <div style={styles.quickFriendMeta}>
+                    <span style={styles.quickFriendName}>{friend.displayName}</span>
+                    <span style={styles.quickFriendUsername}>@{friend.username}</span>
+                  </div>
+                  <button
+                    onClick={() => handleAddMember(friend.friendUserId)}
+                    style={styles.addBtn}
+                    title={`Thêm ${friend.displayName} vào phòng`}
+                  >
+                    + Thêm
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ ...styles.sectionHeader, marginTop: '14px' }}>Hoặc tìm kiếm thành viên khác</div>
           <input
             type="text"
             placeholder="Tìm theo username hoặc tên..."
@@ -294,6 +345,54 @@ const styles = {
     padding: '4px 10px',
     fontSize: '12px',
     cursor: 'pointer',
+  },
+  quickFriendList: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '6px',
+    maxHeight: '150px',
+    overflowY: 'auto',
+    backgroundColor: '#f8fafc',
+    border: '1px solid #e2e8f0',
+    borderRadius: '6px',
+    padding: '6px',
+    marginBottom: '8px',
+  },
+  quickFriendCard: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: '6px 10px',
+    backgroundColor: '#ffffff',
+    borderRadius: '4px',
+    border: '1px solid #f1f5f9',
+  },
+  quickFriendAvatar: {
+    width: '28px',
+    height: '28px',
+    borderRadius: '50%',
+    backgroundColor: '#3b82f6',
+    color: '#ffffff',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontWeight: '600',
+    fontSize: '12px',
+    marginRight: '8px',
+  },
+  quickFriendMeta: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+  },
+  quickFriendName: {
+    fontSize: '13px',
+    fontWeight: '500',
+    color: '#1e293b',
+  },
+  quickFriendUsername: {
+    fontSize: '11px',
+    color: '#64748b',
   },
   memberList: {
     maxHeight: '260px',

@@ -57,8 +57,11 @@ const roomsSlice = createSlice({
       const { userId, isOnline } = action.payload;
       state.onlineUsers[userId] = isOnline;
     },
+    // Xóa phòng khỏi danh sách phòng khi nhận sự kiện xóa phòng (chuẩn hóa ID chữ thường)
     roomDeleted: (state, action) => {
-      state.list = state.list.filter((r) => r.id !== action.payload);
+      const deletedRoomId = action.payload ? action.payload.toString().toLowerCase() : null;
+      if (!deletedRoomId) return;
+      state.list = state.list.filter((r) => r.id?.toString().toLowerCase() !== deletedRoomId);
     },
     memberRemoved: (state, action) => {
       const { roomId, userId } = action.payload;
@@ -74,6 +77,18 @@ const roomsSlice = createSlice({
         room.createdByUserId = newOwnerId;
       }
     },
+    // Chèn phòng mới vào danh sách khi được ai đó thêm vào phòng (chuẩn hóa ID)
+    roomAdded: (state, action) => {
+      const room = action.payload;
+      if (!room) return;
+      const normalizedRoom = {
+        ...room,
+        id: (room.id || room.Id)?.toString().toLowerCase(),
+      };
+      if (!state.list.some((r) => (r.id || r.Id)?.toString().toLowerCase() === normalizedRoom.id)) {
+        state.list.unshift(normalizedRoom);
+      }
+    },
   },
   extraReducers: (builder) => {
     builder
@@ -82,17 +97,32 @@ const roomsSlice = createSlice({
       })
       .addCase(fetchRooms.fulfilled, (state, action) => {
         state.loading = false;
-        state.list = action.payload;
+        // Chuẩn hóa toàn bộ id danh sách phòng về chữ thường để đồng bộ với activeRoomId
+        state.list = (action.payload || []).map((r) => ({
+          ...r,
+          id: (r.id || r.Id)?.toString().toLowerCase(),
+        }));
       })
       .addCase(fetchRooms.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
       .addCase(createRoom.fulfilled, (state, action) => {
-        state.list.unshift(action.payload);
+        const raw = action.payload;
+        if (!raw) return;
+        const normalizedRoom = {
+          ...raw,
+          id: (raw.id || raw.Id)?.toString().toLowerCase(),
+        };
+        // Kiểm tra tránh trùng lặp phòng nếu đã được thêm qua socket
+        if (!state.list.some((r) => (r.id || r.Id)?.toString().toLowerCase() === normalizedRoom.id)) {
+          state.list.unshift(normalizedRoom);
+        }
       })
       .addCase(deleteRoom.fulfilled, (state, action) => {
-        state.list = state.list.filter((r) => r.id !== action.payload);
+        const deletedRoomId = action.payload ? action.payload.toString().toLowerCase() : null;
+        if (!deletedRoomId) return;
+        state.list = state.list.filter((r) => r.id?.toString().toLowerCase() !== deletedRoomId);
       })
       .addCase(leaveRoom.fulfilled, (state, action) => {
         state.list = state.list.filter((r) => r.id !== action.payload);
@@ -105,6 +135,7 @@ export const {
   roomDeleted,
   memberRemoved,
   ownerTransferredReceived,
+  roomAdded,
 } = roomsSlice.actions;
 
 export default roomsSlice.reducer;

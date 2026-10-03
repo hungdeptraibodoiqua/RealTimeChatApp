@@ -1,5 +1,6 @@
 using ChatApp.API.Hubs;
 using ChatApp.Application.Abstractions.Realtime;
+using ChatApp.Infrastructure;
 using Microsoft.AspNetCore.SignalR;
 
 namespace ChatApp.API.Services;
@@ -11,10 +12,12 @@ namespace ChatApp.API.Services;
 public class ChatNotifier : IChatNotifier
 {
     private readonly IHubContext<ChatHub> _hubContext;
+    private readonly PresenceTracker _presenceTracker;
 
-    public ChatNotifier(IHubContext<ChatHub> hubContext)
+    public ChatNotifier(IHubContext<ChatHub> hubContext, PresenceTracker presenceTracker)
     {
         _hubContext = hubContext;
+        _presenceTracker = presenceTracker;
     }
 
     public async Task UserOnlineAsync(Guid userId, CancellationToken cancellationToken = default)
@@ -80,6 +83,29 @@ public class ChatNotifier : IChatNotifier
         await _hubContext.Clients.Group(roomId.ToString()).SendAsync("MemberRemoved", new { RoomId = roomId, UserId = userId }, cancellationToken);
     }
 
+    public async Task UserAddedToRoomAsync(Guid userId, object roomDto, CancellationToken cancellationToken = default)
+    {
+        // 1. Gửi sự kiện AddedToRoom tới riêng user được thêm để UI cập nhật phòng tức thì
+        await _hubContext.Clients.User(userId.ToString()).SendAsync("AddedToRoom", roomDto, cancellationToken);
+
+        // 2. Lấy Id của room từ DTO và đưa toàn bộ connection đang mở của user đó vào SignalR Group
+        var roomIdProperty = roomDto.GetType().GetProperty("Id")?.GetValue(roomDto)?.ToString();
+        if (!string.IsNullOrEmpty(roomIdProperty))
+        {
+            var connections = _presenceTracker.GetConnections(userId);
+            foreach (var connId in connections)
+            {
+                await _hubContext.Groups.AddToGroupAsync(connId, roomIdProperty, cancellationToken);
+            }
+        }
+    }
+
+    public async Task MemberAddedAsync(Guid roomId, object memberDto, CancellationToken cancellationToken = default)
+    {
+        // Báo cho các thành viên trong phòng biết có người mới vào
+        await _hubContext.Clients.Group(roomId.ToString()).SendAsync("MemberAdded", new { RoomId = roomId, Member = memberDto }, cancellationToken);
+    }
+
     public async Task FriendRequestReceivedAsync(Guid targetUserId, object requestDto, CancellationToken cancellationToken = default)
     {
         // Gửi thông báo lời mời kết bạn tới riêng user nhận
@@ -90,5 +116,27 @@ public class ChatNotifier : IChatNotifier
     {
         // Gửi thông báo lời mời được chấp nhận tới người gửi
         await _hubContext.Clients.User(requesterUserId.ToString()).SendAsync("FriendRequestAccepted", friendshipDto, cancellationToken);
+    }
+
+    /// <summary>
+    /// Phát sự kiện RoomDeleted tới toàn bộ thành viên của phòng chat bị xóa:
+    /// - Gửi tới group SignalR của roomId.
+    /// - Gửi trực tiếp tới từng UserId của thành viên để đảm bảo nhận được ngay cả khi chưa vào group.
+    /// </summary>
+    public async Task RoomDeletedAsync(Guid roomId, IEnumerable<Guid>? memberUserIds = null, CancellationToken cancellationToken = default)
+    {
+        var normalizedRoomId = roomId.ToString().ToLowerInvariant();
+
+        // 1. Phát sự kiện RoomDeleted tới group phòng chat
+        await _hubContext.Clients.Group(normalizedRoomId).SendAsync("RoomDeleted", normalizedRoomId, cancellationToken);
+
+        // 2. Đồng thời gửi tới từng UserId của thành viên trong phòng
+        if (memberUserIds != null)
+        {
+            foreach (var userId in memberUserIds)
+            {
+                await _hubContext.Clients.User(userId.ToString()).SendAsync("RoomDeleted", normalizedRoomId, cancellationToken);
+            }
+        }
     }
 }

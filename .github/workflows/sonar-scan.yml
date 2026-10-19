@@ -15,20 +15,7 @@ jobs:
         with:
           fetch-depth: 0  # Tránh lỗi thiếu lịch sử khi quét
 
-      # 1. Nếu project của bạn dùng .NET (ví dụ C#), bạn có thể bật phần build này:
-      # - name: Setup .NET
-      #   uses: actions/setup-dotnet@v4
-      #   with:
-      #     dotnet-version: '8.0' # Thay phiên bản phù hợp với app của bạn
-
-      # 2. Thực hiện quét mã nguồn bằng SonarScanner CLI hoặc lệnh tương ứng
-      # Đảm bảo bạn đã cài SonarScanner hoặc cấu hình kết nối tới http://localhost:9000
       - name: Run SonarQube Scanner
         run: |
           echo "Bắt đầu quét mã nguồn bằng SonarQube..."
-          # Đặt lệnh sonar-scanner của bạn tại đây hoặc gọi script quét
-          sonar-scanner \
-            -Dsonar.projectKey=RealTimeChatApp \
-            -Dsonar.sources=. \
-            -Dsonar.host.url=http://localhost:9000 \
-            -Dsonar.login=BCSMAEE3MFWJRRHUK75AQJDK2ZD2Y
+          sonar-scanner -Dsonar.projectKey=RealTimeChatApp -Dsonar.sources=. -Dsonar.host.url=http://localhost:32768 -Dsonar.token=BCSMAEE3MFWJRRHUK75AQJDK2ZD2Y

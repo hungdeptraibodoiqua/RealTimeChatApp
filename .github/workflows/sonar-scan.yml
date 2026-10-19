@@ -25,14 +25,14 @@ jobs:
           fetch-depth: 0    # Sonar cần lịch sử Git để tính "New Code" và blame
 
       - name: Cài SonarScanner for .NET (vào thư mục cục bộ)
-        shell: pwsh
+        shell: powershell
         run: |
           if (-not (Test-Path .sonar\scanner)) {
             dotnet tool install dotnet-sonarscanner --tool-path .sonar\scanner
           }
 
       - name: Build và phân tích
-        shell: pwsh
+        shell: powershell
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
@@ -54,7 +54,7 @@ jobs:
           fetch-depth: 0
 
       - name: Phân tích bằng SonarScanner CLI
-        shell: pwsh
+        shell: powershell
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
           SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}

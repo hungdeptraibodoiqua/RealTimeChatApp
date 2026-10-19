@@ -1,21 +1,68 @@
-name: SonarQube Local Scan
+# Tự động quét SonarQube mỗi lần push — Mô hình A:
+# SonarQube chạy ở http://localhost:9000 trên máy Windows cá nhân,
+# GitHub Actions self-hosted runner cài trên CHÍNH máy đó.
+#
+# Cần tạo 2 secret trong repo (Settings → Secrets and variables → Actions):
+#   SONAR_TOKEN     = token tạo trong SonarQube (My Account → Security)
+#   SONAR_HOST_URL  = http://localhost:9000
+
+name: SonarQube Scan
 
 on:
   push:
-    branches: [ "main", "master", "dev" ]
+    branches: [ "main", "feature/**" ]
+  workflow_dispatch:        # cho phép bấm "Run workflow" thủ công khi demo
+  # Không bật pull_request: repo public + self-hosted runner thì PR từ fork
+  # có thể chạy code tùy ý trên máy cá nhân.
 
 jobs:
-  sonar:
-    name: Build and Analyze with SonarQube
-    runs-on: self-hosted  # Chạy trực tiếp trên máy cá nhân của bạn
-
+  backend:
+    name: Backend (.NET 9)
+    runs-on: [ self-hosted, Windows, X64 ]
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Tránh lỗi thiếu lịch sử khi quét
+          fetch-depth: 0    # Sonar cần lịch sử Git để tính "New Code" và blame
 
-      - name: Run SonarQube Scanner
+      - name: Cài SonarScanner for .NET (vào thư mục cục bộ)
+        shell: pwsh
         run: |
-          echo "Bắt đầu quét mã nguồn bằng SonarQube..."
-          sonar-scanner -Dsonar.projectKey=RealTimeChatApp -Dsonar.sources=. -Dsonar.host.url=http://localhost:32768 -Dsonar.token=BCSMAEE3MFWJRRHUK75AQJDK2ZD2Y
+          if (-not (Test-Path .sonar\scanner)) {
+            dotnet tool install dotnet-sonarscanner --tool-path .sonar\scanner
+          }
+
+      - name: Build và phân tích
+        shell: pwsh
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          .sonar\scanner\dotnet-sonarscanner begin `
+            /k:"chatapp-backend" /n:"ChatApp Backend (.NET)" `
+            /d:sonar.host.url="$env:SONAR_HOST_URL" `
+            /d:sonar.token="$env:SONAR_TOKEN" `
+            /d:sonar.exclusions="**/bin/**,**/obj/**,**/wwwroot/uploads/**"
+          dotnet build backend\backend.sln -c Release
+          .sonar\scanner\dotnet-sonarscanner end /d:sonar.token="$env:SONAR_TOKEN"
+
+  frontend:
+    name: Frontend (React) + Dockerfile
+    runs-on: [ self-hosted, Windows, X64 ]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Phân tích bằng SonarScanner CLI
+        shell: pwsh
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+        run: |
+          npx --yes @sonar/scan `
+            "-Dsonar.host.url=$env:SONAR_HOST_URL" `
+            "-Dsonar.token=$env:SONAR_TOKEN" `
+            "-Dsonar.projectKey=chatapp-frontend" `
+            "-Dsonar.projectName=ChatApp Frontend (React)" `
+            "-Dsonar.sources=frontend" `
+            "-Dsonar.exclusions=**/node_modules/**,**/dist/**,**/package-lock.json"

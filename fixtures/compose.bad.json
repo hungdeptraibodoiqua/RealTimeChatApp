@@ -1,0 +1,10 @@
+{
+  "services": {
+    "db": {
+      "privileged": true,
+      "security_opt": [],
+      "cap_drop": [],
+      "ports": [{"host_ip":"0.0.0.0", "published":5432, "target":5432}]
+    }
+  }
+}

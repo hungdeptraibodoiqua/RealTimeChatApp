@@ -1,0 +1,106 @@
+﻿name: DevSecOps Local Security Gates
+on:
+  push:
+    branches: [main, 'feature/**']
+  workflow_dispatch:
+permissions:
+  contents: read
+# Buoc 1c: thay bang image@sha256:<digest> da ghi trong bao cao. Trivy KHONG dung 0.69.4-0.69.6.
+env:
+  GITLEAKS_IMAGE: zricethezav/gitleaks@sha256:c00b6bd0aeb3071cbcb79009cb16a60dd9e0a7c60e2be9ab65d25e6bc8abbb7f
+  CHECKOV_IMAGE: bridgecrew/checkov@sha256:4e4f2051941d2891f2b1ed7d20eb5a188c80f980f4af8bbe3bfd6a33ce674304
+  OPA_IMAGE: openpolicyagent/opa@sha256:895872de1e8dc5b82e04f9410d2d1ada2f72d28fdcdba0e8789d91cfc27ec0d0
+  TRIVY_IMAGE: aquasec/trivy@sha256:790fd66d1697395d8693d1acaa1ea702406a20f109b6fc7bac8db623eca6c06c
+  PYTHON_IMAGE: python@sha256:e6dae589c1c05976188fd3bd019afd091445fc533ed2ea29001beddc7368a9c8
+jobs:
+  security:
+    if: github.event_name != 'pull_request'
+    runs-on: [self-hosted, Windows, X64]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Check prerequisites
+        run: |
+          docker info | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw 'Docker Desktop Linux engine must be running' }
+      - name: Secret scanning via Gitleaks
+        run: |
+          $root = (Get-Location).Path
+          docker run --rm --mount "type=bind,source=$root,target=/work,readonly" $env:GITLEAKS_IMAGE dir /work --config /work/.gitleaks.toml --redact --exit-code 1
+          if ($LASTEXITCODE -ne 0) { throw 'Secrets detected; do NOT print secret values' }
+      - name: IaC scanning via Checkov
+        run: |
+          $root = (Get-Location).Path
+          docker run --rm --mount "type=bind,source=$root,target=/work,readonly" $env:CHECKOV_IMAGE --directory /work --skip-path training --framework dockerfile --check CKV_DOCKER_3,CKV_DOCKER_7,CKV_DOCKER_8 --compact
+          if ($LASTEXITCODE -ne 0) { throw 'Dockerfile baseline violated' }
+      - name: Custom Compose Policy-as-Code via OPA
+        run: |
+          $root = (Get-Location).Path
+          New-Item -ItemType Directory -Force -Path security-reports | Out-Null
+          $config = docker compose --env-file lab.env.example config --format json
+          if ($LASTEXITCODE -ne 0) { throw 'docker compose config failed' }
+          $enc = New-Object System.Text.UTF8Encoding($false)
+          [System.IO.File]::WriteAllText((Join-Path $root 'security-reports/compose.rendered.json'), ($config -join [Environment]::NewLine), $enc)
+          docker run --rm --mount "type=bind,source=$root,target=/work,readonly" $env:OPA_IMAGE eval --fail-defined -d /work/policies/compose.rego -i /work/security-reports/compose.rendered.json 'data.chatapp.compose.deny[_]'
+          if ($LASTEXITCODE -ne 0) { throw 'Real Compose configuration violated policy' }
+      - name: Build images
+        run: |
+          docker build -t chatapp-backend:lab backend
+          if ($LASTEXITCODE -ne 0) { throw 'Backend build failed' }
+          docker build --build-arg VITE_API_URL=http://localhost:3000 -t chatapp-frontend:lab frontend
+          if ($LASTEXITCODE -ne 0) { throw 'Frontend build failed' }
+      - name: Scan container images with Trivy
+        run: |
+          $root = (Get-Location).Path
+          New-Item -ItemType Directory -Force -Path security-reports | Out-Null
+          foreach ($image in @('backend','frontend')) {
+            try {
+              docker save -o "security-reports/$image.tar" "chatapp-$image`:lab"
+              if ($LASTEXITCODE -ne 0) { throw 'docker save failed' }
+              docker run --rm -v trivy-cache:/root/.cache --mount "type=bind,source=$root,target=/work" $env:TRIVY_IMAGE image --input "/work/security-reports/$image.tar" --scanners vuln --severity HIGH,CRITICAL --ignore-unfixed --ignorefile /work/.trivyignore --exit-code 1 --format json --output "/work/security-reports/trivy-$image.json"
+              if ($LASTEXITCODE -ne 0) { throw "Trivy found vulnerabilities in $image" }
+            } finally {
+              Remove-Item "security-reports/$image.tar" -ErrorAction SilentlyContinue
+            }
+          }
+      - name: Save safe scanner output
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: devsecops-scan-results
+          path: security-reports/trivy-*.json
+          if-no-files-found: ignore
+          retention-days: 3
+
+  training-regressions:
+    if: github.event_name != 'pull_request'
+    runs-on: [self-hosted, Windows, X64]
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - name: Check 10 security and 5 code-quality cases (negative + positive controls)
+        run: |
+          $root = (Get-Location).Path
+          docker run --rm --mount "type=bind,source=$root,target=/work" -w /work $env:PYTHON_IMAGE python scripts/verify-training-cases.py
+          if ($LASTEXITCODE -ne 0) { throw 'Security fixture regression is incorrect' }
+          docker run --rm --mount "type=bind,source=$root,target=/work" -w /work $env:PYTHON_IMAGE python scripts/verify-quality-cases.py
+          if ($LASTEXITCODE -ne 0) { throw 'Code quality fixture regression is incorrect' }
+      - name: Upload sanitized training assertions
+        if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: training-15-case-regression
+          path: |
+            security-reports/training-validation.json
+            security-reports/quality-validation.json
+          if-no-files-found: ignore
+          retention-days: 3

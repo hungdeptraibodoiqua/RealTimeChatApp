@@ -1,0 +1,6 @@
+services:
+  worker:
+    image: alpine:3.21
+    privileged: false
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]

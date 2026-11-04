@@ -1,0 +1,13 @@
+title = "Training-only scanning (dummy values, never real credentials)"
+[extend]
+useDefault = true
+[[rules]]
+id = "training-jwt"
+description = "JWT secret embedded in settings"
+regex = '''"Secret"\s*:\s*"([^"\r\n]+)"'''
+secretGroup = 1
+[[rules]]
+id = "training-db"
+description = "DB password embedded in settings"
+regex = '''Password=([^;"\s]+)'''
+secretGroup = 1

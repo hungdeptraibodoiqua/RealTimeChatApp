@@ -1,0 +1,9 @@
+services:
+  db:
+    image: postgres:16-alpine
+    networks: [private]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+networks:
+  private:
+    internal: true

@@ -1,0 +1,10 @@
+{
+  "services": {
+    "db": {
+      "privileged": false,
+      "security_opt": ["no-new-privileges:true"],
+      "cap_drop": ["ALL"],
+      "ports": []
+    }
+  }
+}

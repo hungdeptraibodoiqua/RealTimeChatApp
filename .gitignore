@@ -1,0 +1,53 @@
+# Build
+**/bin/
+**/obj/
+node_modules/
+dist/
+
+# User files
+*.user
+*.suo
+*.userprefs
+
+# VS Code
+.vscode/
+
+#visual studio
+.vs/
+**/.vs/
+
+# Rider
+.idea/
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# .NET
+*.dll
+*.exe
+*.pdb
+
+# EF: KHÔNG ignore Migrations/ (cần để backend tự apply migration khi clone repo)
+
+# appsettings secrets
+appsettings.Development.json
+appsettings.*.json
+# Lab local credentials and scanner artifacts
+.env
+.env.local
+*.tfstate
+*.tfstate.backup
+.terraform/
+security-reports/
+*.tar
+
+# SonarScanner artifacts
+.sonarqube/
+.scannerwork/
+
+# Ghi chu token ca nhan (SEC-15) - khong bao gio commit
+materials.txt

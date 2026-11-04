@@ -1,0 +1,6 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports: ["0.0.0.0:5432:5432"] # LỖI MÔ PHỎNG
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]

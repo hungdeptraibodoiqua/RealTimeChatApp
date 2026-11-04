@@ -1,0 +1,3 @@
+# Danh sach CVE duoc CHAP NHAN tam thoi. Moi dong phai co chu thich dang:
+# CVE-YYYY-NNNNN   # image, package, ly do (chua co ban va / khong reachable), nguoi duyet, han xem lai YYYY-MM-DD
+# Khong them CVE chi de pipeline xanh. Ghi lai tung dong vao bang residual risk trong bao cao.

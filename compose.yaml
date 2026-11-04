@@ -1,0 +1,72 @@
+name: chatapp-devsecops
+services:
+  db:
+    image: postgres:16-alpine
+    # Chạy bằng UID/GID postgres (70) của image alpine: entrypoint không cần CHOWN/SETUID,
+    # nhờ vậy giữ được cap_drop: [ALL]. Thiếu dòng này thì db crash "Operation not permitted".
+    user: "70:70"
+    environment:
+      POSTGRES_DB: chatapp_db
+      POSTGRES_USER: chatapp
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Provide DB_PASSWORD via --env-file}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks: [private]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatapp -d chatapp_db"]
+      interval: 5s
+      retries: 15
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    image: chatapp-backend:lab
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ASPNETCORE_HTTP_PORTS: "8080"
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=chatapp_db;Username=chatapp;Password=${DB_PASSWORD:?Provide DB_PASSWORD}
+      Jwt__Secret: ${JWT_SECRET:?Provide JWT_SECRET}
+      Jwt__Issuer: ChatApp.API
+      Jwt__Audience: ChatApp.Client
+      Media__StoragePath: /app/data/uploads
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [private]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    volumes:
+      - uploads:/app/data/uploads   # SEC-05: media luu ngoai wwwroot
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        VITE_API_URL: http://localhost:3000
+    image: chatapp-frontend:lab
+    privileged: true
+    privileged: true
+    ports:
+      - "127.0.0.1:3000:8080"
+    depends_on: [backend]
+    networks: [private, edge]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /var/cache/nginx
+      - /var/run
+
+networks:
+  edge:
+    driver: bridge
+  private:
+    internal: true
+volumes:
+  pgdata:
+  uploads:

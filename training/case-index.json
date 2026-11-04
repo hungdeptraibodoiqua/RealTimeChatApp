@@ -1,0 +1,111 @@
+{
+  "security": {
+    "SEC-01": {
+      "member": 1,
+      "title": "JWT secret cố định trong appsettings",
+      "phase": "Code/Secrets",
+      "tool": "Gitleaks",
+      "where": "Cấu hình ứng dụng",
+      "nature": "observed-in-original"
+    },
+    "SEC-02": {
+      "member": 1,
+      "title": "Mật khẩu PostgreSQL cố định trong connection string",
+      "phase": "Code/Secrets",
+      "tool": "Gitleaks",
+      "where": "Cấu hình ứng dụng",
+      "nature": "observed-in-original"
+    },
+    "SEC-03": {
+      "member": 2,
+      "title": "SignalR JoinRoom thiếu kiểm tra thành viên",
+      "phase": "Code/AuthZ",
+      "tool": "Policy check + SignalR integration",
+      "where": "Realtime",
+      "nature": "observed-in-original"
+    },
+    "SEC-04": {
+      "member": 2,
+      "title": "SignalR SendTyping thiếu kiểm tra thành viên",
+      "phase": "Code/AuthZ",
+      "tool": "Policy check + SignalR integration",
+      "where": "Realtime",
+      "nature": "observed-in-original"
+    },
+    "SEC-05": {
+      "member": 3,
+      "title": "File upload công khai qua UseStaticFiles",
+      "phase": "Code/Operations",
+      "tool": "Guard + HTTP test",
+      "where": "Media",
+      "nature": "observed-in-original"
+    },
+    "SEC-06": {
+      "member": 3,
+      "title": "JWT bỏ xác minh thời hạn token",
+      "phase": "Code/AuthN",
+      "tool": "Guard",
+      "where": "JWT",
+      "nature": "intentionally-simulated"
+    },
+    "SEC-07": {
+      "member": 4,
+      "title": "CORS AllowAnyOrigin",
+      "phase": "Code/Config",
+      "tool": "Guard",
+      "where": "API",
+      "nature": "intentionally-simulated"
+    },
+    "SEC-08": {
+      "member": 4,
+      "title": "Dockerfile chạy root",
+      "phase": "Build/Container",
+      "tool": "Checkov",
+      "where": "Image",
+      "nature": "intentionally-simulated"
+    },
+    "SEC-09": {
+      "member": 5,
+      "title": "Compose container privileged=true",
+      "phase": "Deploy/IaC",
+      "tool": "OPA Rego",
+      "where": "Container",
+      "nature": "intentionally-simulated"
+    },
+    "SEC-10": {
+      "member": 5,
+      "title": "PostgreSQL publish 5432 trên mọi địa chỉ",
+      "phase": "Deploy/IaC",
+      "tool": "OPA Rego",
+      "where": "Network",
+      "nature": "intentionally-simulated"
+    }
+  },
+  "code_quality": {
+    "CQ-01": {
+      "member": 1,
+      "title": "Empty catch",
+      "origin": "intentionally-simulated"
+    },
+    "CQ-02": {
+      "member": 2,
+      "title": "Duplicate condition",
+      "origin": "intentionally-simulated"
+    },
+    "CQ-03": {
+      "member": 3,
+      "title": "Blocking sync call in async method",
+      "origin": "intentionally-simulated"
+    },
+    "CQ-04": {
+      "member": 4,
+      "title": "Magic number",
+      "origin": "intentionally-simulated"
+    },
+    "CQ-05": {
+      "member": 5,
+      "title": "Duplicate computation",
+      "origin": "intentionally-simulated"
+    }
+  }
+}
